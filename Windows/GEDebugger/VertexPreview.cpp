@@ -277,9 +277,12 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		prim_type = (op >> 16) & 0x7;
 		count = op & 0xFFFF;
 	} else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-constant-out-of-range-compare"
 		const GEPrimitiveType primLookup[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
 		if (gstate.getPatchPrimitiveType() < ARRAY_SIZE(primLookup))
 			prim_type = primLookup[gstate.getPatchPrimitiveType()];
+#pragma clang diagnostic pop
 		count_u = (op & 0x00FF) >> 0;
 		count_v = (op & 0xFF00) >> 8;
 		count = count_u * count_v;
