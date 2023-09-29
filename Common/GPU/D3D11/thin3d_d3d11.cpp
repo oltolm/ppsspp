@@ -143,15 +143,17 @@ public:
 		case DRIVER: return "-";
 		case SHADELANGVERSION:
 			switch (featureLevel_) {
-			case D3D_FEATURE_LEVEL_9_1: return "Feature Level 9.1"; break;
-			case D3D_FEATURE_LEVEL_9_2: return "Feature Level 9.2"; break;
-			case D3D_FEATURE_LEVEL_9_3: return "Feature Level 9.3"; break;
-			case D3D_FEATURE_LEVEL_10_0: return "Feature Level 10.0"; break;
-			case D3D_FEATURE_LEVEL_10_1: return "Feature Level 10.1"; break;
-			case D3D_FEATURE_LEVEL_11_0: return "Feature Level 11.0"; break;
-			case D3D_FEATURE_LEVEL_11_1: return "Feature Level 11.1"; break;
-			case D3D_FEATURE_LEVEL_12_0: return "Feature Level 12.0"; break;
-			case D3D_FEATURE_LEVEL_12_1: return "Feature Level 12.1"; break;
+			case D3D_FEATURE_LEVEL_1_0_CORE: return "Feature Level 1.0 Core";
+			case D3D_FEATURE_LEVEL_9_1: return "Feature Level 9.1";
+			case D3D_FEATURE_LEVEL_9_2: return "Feature Level 9.2";
+			case D3D_FEATURE_LEVEL_9_3: return "Feature Level 9.3";
+			case D3D_FEATURE_LEVEL_10_0: return "Feature Level 10.0";
+			case D3D_FEATURE_LEVEL_10_1: return "Feature Level 10.1";
+			case D3D_FEATURE_LEVEL_11_0: return "Feature Level 11.0";
+			case D3D_FEATURE_LEVEL_11_1: return "Feature Level 11.1";
+			case D3D_FEATURE_LEVEL_12_0: return "Feature Level 12.0";
+			case D3D_FEATURE_LEVEL_12_1: return "Feature Level 12.1";
+			case D3D_FEATURE_LEVEL_12_2: return "Feature Level 12.2";
 			}
 			return "Unknown feature level";
 		case APINAME: return "Direct3D 11";
@@ -422,6 +424,11 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 		curRTHeight_ = height;
 		break;
 	}
+	case Event::LOST_DEVICE:
+	case Event::GOT_DEVICE:
+	case Event::RESIZED:
+	case Event::PRESENTED:
+		break;
 	}
 }
 
@@ -1152,6 +1159,8 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc, con
 			break;
 		case ShaderStage::Geometry:
 			dPipeline->gs = module->gs;
+			break;
+		case ShaderStage::Compute:
 			break;
 		}
 	}
