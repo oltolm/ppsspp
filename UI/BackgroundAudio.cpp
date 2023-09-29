@@ -571,7 +571,7 @@ public:
 	TaskPriority Priority() const override {
 		return TaskPriority::NORMAL;
 	}
-	virtual void Run() override {
+	void Run() override {
 		mixer_->LoadSamplesOnThread();
 	}
 private:
