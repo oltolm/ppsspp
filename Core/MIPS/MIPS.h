@@ -174,7 +174,7 @@ public:
 	~MIPSState();
 
 	void Init();
-	void Shutdown();
+	void Shutdown(bool onexit = false);
 	void Reset();
 	void UpdateCore(CPUCore desired);
 

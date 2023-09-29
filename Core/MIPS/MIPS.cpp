@@ -160,10 +160,12 @@ MIPSState::MIPSState() {
 }
 
 MIPSState::~MIPSState() {
-	Shutdown();
+	Shutdown(true);
 }
 
-void MIPSState::Shutdown() {
+void MIPSState::Shutdown(bool onexit) {
+	if (onexit)
+		return;
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
 	if (oldjit) {
