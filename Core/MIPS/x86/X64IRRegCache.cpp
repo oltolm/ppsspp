@@ -265,7 +265,7 @@ X64Reg X64IRRegCache::GetAndLockTempFPR() {
 
 void X64IRRegCache::ReserveAndLockXGPR(Gen::X64Reg r) {
 	IRNativeReg nreg = GPRToNativeReg(r);
-	if (nr[nreg].mipsReg != -1)
+	if (nr[nreg].mipsReg != (IRReg)-1)
 		FlushNativeReg(nreg);
 	nr[r].tempLockIRIndex = irIndex_;
 }

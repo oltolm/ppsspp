@@ -1136,6 +1136,9 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) {
 			}
 		}
 		break;
+	case ST_NONE:
+	case ST_ALL:
+		break;
 	}
 
 	SendMessage(listbox, WM_SETREDRAW, TRUE, 0);
