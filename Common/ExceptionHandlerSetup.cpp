@@ -83,7 +83,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 
 	INFO_LOG(Log::System, "Installing exception handler");
 	g_badAccessHandler = badAccessHandler;
-	g_vectoredExceptionHandle = AddVectoredExceptionHandler(TRUE, GlobalExceptionHandler);
+	g_vectoredExceptionHandle = AddVectoredExceptionHandler(FALSE, GlobalExceptionHandler);
 }
 
 void UninstallExceptionHandler() {
