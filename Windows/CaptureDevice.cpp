@@ -424,18 +424,24 @@ u32 ReaderCallback::doResample(u8 **dst, u32 &dstSampleRate, u32 &dstChannels, u
 #ifdef USE_FFMPEG
 	AVSampleFormat srcAVFormat = getAVAudioFormatbyMFAudioFormat(srcFormat, srcBitsPerSample);
 	int outSamplesCount = 0;
+	AVChannelLayout dst_layout;
+	av_channel_layout_default(&dst_layout, dstChannels);
+	AVChannelLayout src_layout;
+	av_channel_layout_default(&src_layout, srcChannels);
 	if (resample_ctx == nullptr) {
-		resample_ctx = swr_alloc_set_opts(nullptr,
-			av_get_default_channel_layout(dstChannels),
+		swr_alloc_set_opts2(&resample_ctx,
+			&dst_layout,
 			AV_SAMPLE_FMT_S16,
 			dstSampleRate,
-			av_get_default_channel_layout(srcChannels),
+			&src_layout,
 			srcAVFormat,
 			srcSampleRate,
 			0,
 			nullptr);
 		if (resample_ctx == nullptr || swr_init(resample_ctx) < 0) {
 			swr_free(&resample_ctx);
+			av_channel_layout_uninit(&src_layout);
+			av_channel_layout_uninit(&dst_layout);
 			return 0;
 		}
 	}
@@ -447,15 +453,21 @@ u32 ReaderCallback::doResample(u8 **dst, u32 &dstSampleRate, u32 &dstChannels, u
 		*dst = (u8 *)av_malloc(outSize);
 		*dstSize = outSize;
 	}
-	if (!*dst)
+	if (!*dst) {
+		av_channel_layout_uninit(&src_layout);
+		av_channel_layout_uninit(&dst_layout);
 		return 0;
+	}
 
 	if(*dstSize < outSize)
 		av_fast_malloc(dst, dstSize, outSize);
 
 	outSamplesCount = swr_convert(resample_ctx, dst, outCount, (const uint8_t **)&src, srcSamplesCount);
-	if (outSamplesCount < 0)
+	if (outSamplesCount < 0) {
+		av_channel_layout_uninit(&src_layout);
+		av_channel_layout_uninit(&dst_layout);
 		return 0;
+	}
 	return av_samples_get_buffer_size(nullptr, dstChannels, outSamplesCount, AV_SAMPLE_FMT_S16, 0);
 #else
 	return 0;

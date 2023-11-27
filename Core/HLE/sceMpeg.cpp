@@ -805,7 +805,7 @@ static bool InitPmp(MpegContext * ctx){
 	pmp_want_pix_fmt = AV_PIX_FMT_RGBA;
 
 	// Create H264 video codec
-	const AVCodec * pmp_Codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+	AVCodec * pmp_Codec = avcodec_find_decoder(AV_CODEC_ID_H264);
 	if (pmp_Codec == NULL){
 		ERROR_LOG(Log::ME, "Can not find H264 codec, please update ffmpeg");
 		return false;
@@ -1012,12 +1012,11 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
 		if (packet.size != 0)
 			avcodec_send_packet(pCodecCtx, &packet);
-		int len = avcodec_receive_frame(pCodecCtx, pFrame);
-		if (len == 0) {
-			len = pFrame->pkt_size;
+		int err = avcodec_receive_frame(pCodecCtx, pFrame);
+		if (err == 0) {
 			got_picture = 1;
-		} else if (len == AVERROR(EAGAIN)) {
-			len = 0;
+		} else if (err == AVERROR(EAGAIN)) {
+			err = 0;
 			got_picture = 0;
 		} else {
 			got_picture = 0;
@@ -1056,7 +1055,7 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 			// update timestamp
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 58, 100)
 			int64_t bestPts = mediaengine->m_pFrame->best_effort_timestamp;
-			int64_t ptsDuration = mediaengine->m_pFrame->pkt_duration;
+			int64_t ptsDuration = mediaengine->m_pFrame->duration;
 #else
 			int64_t bestPts = av_frame_get_best_effort_timestamp(mediaengine->m_pFrame);
 			int64_t ptsDuration = av_frame_get_pkt_duration(mediaengine->m_pFrame);
