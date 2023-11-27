@@ -93,7 +93,7 @@ bool AVIDump::Start(int w, int h)
 
 bool AVIDump::CreateAVI() {
 #ifdef USE_FFMPEG
-	const AVCodec *codec = nullptr;
+	AVCodec *codec = nullptr;
 
 	// Use gameID_EmulatedTimestamp for filename
 	std::string discID = g_paramSFO.GetDiscID();
@@ -182,10 +182,11 @@ bool AVIDump::CreateAVI() {
 
 #ifdef USE_FFMPEG
 
-static void PreparePacket(AVPacket* pkt) {
-	av_init_packet(pkt);
+static AVPacket* PreparePacket() {
+	AVPacket* pkt = av_packet_alloc();
 	pkt->data = nullptr;
 	pkt->size = 0;
+	return pkt;
 }
 
 #endif
@@ -224,12 +225,11 @@ void AVIDump::AddFrame() {
 	s_scaled_frame->height = s_height;
 
 	// Encode and write the image.
-	AVPacket pkt;
-	PreparePacket(&pkt);
+	AVPacket* pkt = PreparePacket();
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
 	int error = avcodec_send_frame(s_codec_context, s_scaled_frame);
 	int got_packet = 0;
-	if (avcodec_receive_packet(s_codec_context, &pkt) >= 0) {
+	if (avcodec_receive_packet(s_codec_context, pkt) >= 0) {
 		got_packet = 1;
 	}
 #else
@@ -238,23 +238,23 @@ void AVIDump::AddFrame() {
 #endif
 	while (error >= 0 && got_packet) {
 		// Write the compressed frame in the media file.
-		if (pkt.pts != (s64)AV_NOPTS_VALUE) {
-			pkt.pts = av_rescale_q(pkt.pts, s_codec_context->time_base, s_stream->time_base);
+		if (pkt->pts != (s64)AV_NOPTS_VALUE) {
+			pkt->pts = av_rescale_q(pkt->pts, s_codec_context->time_base, s_stream->time_base);
 		}
-		if (pkt.dts != (s64)AV_NOPTS_VALUE) {
-			pkt.dts = av_rescale_q(pkt.dts, s_codec_context->time_base, s_stream->time_base);
+		if (pkt->dts != (s64)AV_NOPTS_VALUE) {
+			pkt->dts = av_rescale_q(pkt->dts, s_codec_context->time_base, s_stream->time_base);
 		}
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(56, 60, 100)
 		if (s_codec_context->coded_frame->key_frame)
 			pkt.flags |= AV_PKT_FLAG_KEY;
 #endif
-		pkt.stream_index = s_stream->index;
-		av_interleaved_write_frame(s_format_context, &pkt);
+		pkt->stream_index = s_stream->index;
+		av_interleaved_write_frame(s_format_context, pkt);
 
 		// Handle delayed frames.
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
-		av_packet_unref(&pkt);
-		error = avcodec_receive_packet(s_codec_context, &pkt);
+		av_packet_unref(pkt);
+		error = avcodec_receive_packet(s_codec_context, pkt);
 		got_packet = error >= 0 ? 1 : 0;
 #else
 		PreparePacket(&pkt);
@@ -262,7 +262,7 @@ void AVIDump::AddFrame() {
 #endif
 	}
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
-	av_packet_unref(&pkt);
+	av_packet_unref(pkt);
 	if (error < 0 && error != AVERROR(EAGAIN) && error != AVERROR_EOF)
 		ERROR_LOG(Log::G3D, "Error while encoding video: %d", error);
 #else
@@ -270,6 +270,7 @@ void AVIDump::AddFrame() {
 		ERROR_LOG(Log::G3D, "Error while encoding video: %d", error);
 #endif
 #endif
+	av_packet_free(&pkt);
 	delete[] flipbuffer;
 }
 

@@ -379,7 +379,11 @@ void MediaEngine::closeContext()
 	m_pCodecCtxs.clear();
 	// These are streams allocated from avformat_new_stream.
 	for (auto it : m_codecsToClose) {
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
+		avcodec_free_context(&it);
+#else
 		avcodec_close(it);
+#endif
 	}
 	m_codecsToClose.clear();
 	if (m_pFormatCtx)
@@ -535,7 +539,7 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 
 		AVStream *stream = m_pFormatCtx->streams[streamNum];
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
-		const AVCodec *pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
+		AVCodec *pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
 		if (!pCodec) {
 			WARN_LOG_REPORT(Log::ME, "Could not find decoder for %d", (int)stream->codecpar->codec_id);
 			return false;
@@ -678,30 +682,28 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 	if (!m_pFrame)
 		return false;
 
-	AVPacket packet;
-	av_init_packet(&packet);
+	AVPacket* packet = av_packet_alloc();
 	int frameFinished;
 	bool bGetFrame = false;
 	while (!bGetFrame) {
-		bool dataEnd = av_read_frame(m_pFormatCtx, &packet) < 0;
+		bool dataEnd = av_read_frame(m_pFormatCtx, packet) < 0;
 		// Even if we've read all frames, some may have been re-ordered frames at the end.
 		// Still need to decode those, so keep calling avcodec_decode_video2() / avcodec_receive_frame().
-		if (dataEnd || packet.stream_index == m_videoStream) {
+		if (dataEnd || packet->stream_index == m_videoStream) {
 			// avcodec_decode_video2() / avcodec_send_packet() gives us the re-ordered frames with a NULL packet.
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
 			if (dataEnd)
-				av_packet_unref(&packet);
+				av_packet_unref(packet);
 #else
 			if (dataEnd)
 				av_free_packet(&packet);
 #endif
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
-			if (packet.size != 0)
-				avcodec_send_packet(m_pCodecCtx, &packet);
+			if (packet->size != 0)
+				avcodec_send_packet(m_pCodecCtx, packet);
 			int result = avcodec_receive_frame(m_pCodecCtx, m_pFrame);
 			if (result == 0) {
-				result = m_pFrame->pkt_size;
 				frameFinished = 1;
 			} else if (result == AVERROR(EAGAIN)) {
 				result = 0;
@@ -728,7 +730,7 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 
 #if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(55, 58, 100)
 				int64_t bestPts = m_pFrame->best_effort_timestamp;
-				int64_t ptsDuration = m_pFrame->pkt_duration;
+				int64_t ptsDuration = m_pFrame->duration;
 #else
 				int64_t bestPts = av_frame_get_best_effort_timestamp(m_pFrame);
 				int64_t ptsDuration = av_frame_get_pkt_duration(m_pFrame);
@@ -760,9 +762,9 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 			}
 		}
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
-		av_packet_unref(&packet);
+		av_packet_free(&packet);
 #else
-		av_free_packet(&packet);
+		av_free_packet(packet);
 #endif
 	}
 	return bGetFrame;

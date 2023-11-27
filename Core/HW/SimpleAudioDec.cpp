@@ -194,8 +194,10 @@ FFmpegAudioDecoder::FFmpegAudioDecoder(PSPAudioType audioType, int sampleRateHz,
 		ERROR_LOG(Log::ME, "Failed to allocate a codec context");
 		return;
 	}
-	codecCtx_->channels = channels_;
-	codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
+	if (channels_ == 2)
+		codecCtx_->ch_layout = AV_CHANNEL_LAYOUT_STEREO;
+	else
+		codecCtx_->ch_layout = AV_CHANNEL_LAYOUT_MONO;
 	codecCtx_->sample_rate = sample_rate_;
 	codecOpen_ = false;
 #endif  // USE_FFMPEG
@@ -233,8 +235,10 @@ void FFmpegAudioDecoder::SetChannels(int channels) {
 		ERROR_LOG(Log::ME, "Codec already open, cannot change channels");
 	} else {
 		channels_ = channels;
-		codecCtx_->channels = channels_;
-		codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
+		if (channels_ == 2)
+			codecCtx_->ch_layout = AV_CHANNEL_LAYOUT_STEREO;
+		else
+			codecCtx_->ch_layout = AV_CHANNEL_LAYOUT_MONO;
 	}
 #endif
 }
@@ -263,10 +267,9 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 		OpenCodec(inbytes);
 	}
 
-	AVPacket packet;
-	av_init_packet(&packet);
-	packet.data = (uint8_t *)(inbuf);
-	packet.size = inbytes;
+	AVPacket* packet = av_packet_alloc();
+	packet->data = (uint8_t *)(inbuf);
+	packet->size = inbytes;
 
 	int got_frame = 0;
 	av_frame_unref(frame_);
@@ -279,7 +282,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	}
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
 	if (inbytes != 0) {
-		int err = avcodec_send_packet(codecCtx_, &packet);
+		int err = avcodec_send_packet(codecCtx_, packet);
 		if (err < 0) {
 			ERROR_LOG(Log::ME, "Error sending audio frame to decoder (%d bytes): %d (%08x)", inbytes, err, err);
 			return false;
@@ -297,7 +300,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
 #endif
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
-	av_packet_unref(&packet);
+	av_packet_free(&packet);
 #else
 	av_free_packet(&packet);
 #endif
@@ -313,16 +316,16 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	if (got_frame) {
 		// Initializing the sample rate convert. We will use it to convert float output into int.
 		_dbg_assert_(outputChannels == 2);
-		int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo output layout
-		int64_t dec_channel_layout = frame_->channel_layout; // decoded channel layout
+		AVChannelLayout wanted_channel_layout = AV_CHANNEL_LAYOUT_STEREO; // we want stereo output layout
+		const AVChannelLayout& dec_channel_layout = frame_->ch_layout; // decoded channel layout
 
 		if (!swrCtx_) {
-			swrCtx_ = swr_alloc_set_opts(
-				swrCtx_,
-				wanted_channel_layout,
+			swr_alloc_set_opts2(
+				&swrCtx_,
+				&wanted_channel_layout,
 				AV_SAMPLE_FMT_S16,
 				codecCtx_->sample_rate,
-				dec_channel_layout,
+				&dec_channel_layout,
 				codecCtx_->sample_fmt,
 				codecCtx_->sample_rate,
 				0,
@@ -330,7 +333,11 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 
 			if (!swrCtx_ || swr_init(swrCtx_) < 0) {
 				ERROR_LOG(Log::ME, "swr_init: Failed to initialize the resampling context");
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
+				avcodec_free_context(&codecCtx_);
+#else
 				avcodec_close(codecCtx_);
+#endif
 				codec_ = 0;
 				return false;
 			}
