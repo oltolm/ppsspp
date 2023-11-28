@@ -437,9 +437,6 @@ void EmuScreen::bootComplete() {
 }
 
 EmuScreen::~EmuScreen() {
-	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
-	g_Config.TimeTracker().Stop(gameID);
-
 	// If we were invalid, it would already be shutdown.
 	if (!invalid_ || bootPending_) {
 		PSP_Shutdown();

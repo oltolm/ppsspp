@@ -572,6 +572,8 @@ void PSP_Shutdown() {
 	Core_NotifyLifecycle(CoreLifecycle::STOPPING);
 	CPU_Shutdown();
 	GPU_Shutdown();
+	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+	g_Config.TimeTracker().Stop(gameID);
 	g_paramSFO.Clear();
 	System_SetWindowTitle("");
 	currentMIPS = 0;
