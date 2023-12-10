@@ -1045,7 +1045,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("      } else {\n");  // type must be 0x02 - GE_LIGHTTYPE_SPOT
 				p.F("        angle = dot(u_lightdir%s, toLight);\n", iStr);
 				p.F("        if (angle >= u_lightangle_spotCoef%s.x) {\n", iStr);
-				p.F("          lightScale = attenuation * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
+				p.F("          lightScale = attenuation * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(abs(angle), u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
 				p.C("        } else {\n");
 				p.C("          lightScale = 0.0;\n");
 				p.C("        }\n");
