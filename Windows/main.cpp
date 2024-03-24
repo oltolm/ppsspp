@@ -30,6 +30,7 @@
 #include <shellapi.h>
 #include <Wbemidl.h>
 #include <ShlObj.h>
+#include <wrl/client.h>
 
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
@@ -146,30 +147,28 @@ std::string GetVideoCardDriverVersion() {
 		return retvalue;
 	}
 
-	IWbemLocator *pIWbemLocator = NULL;
-	hr = CoCreateInstance(__uuidof(WbemLocator), NULL, CLSCTX_INPROC_SERVER,
-		__uuidof(IWbemLocator), (LPVOID *)&pIWbemLocator);
+	Microsoft::WRL::ComPtr<IWbemLocator> pIWbemLocator;
+	hr = CoCreateInstance(__uuidof(WbemLocator), NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pIWbemLocator));
 	if (FAILED(hr)) {
 		CoUninitialize();
 		return retvalue;
 	}
 
 	BSTR bstrServer = SysAllocString(L"\\\\.\\root\\cimv2");
-	IWbemServices *pIWbemServices;
+	Microsoft::WRL::ComPtr<IWbemServices> pIWbemServices;
 	hr = pIWbemLocator->ConnectServer(bstrServer, NULL, NULL, 0L, 0L, NULL,	NULL, &pIWbemServices);
 	if (FAILED(hr)) {
-		pIWbemLocator->Release();
 		SysFreeString(bstrServer);
 		CoUninitialize();
 		return retvalue;
 	}
 
-	hr = CoSetProxyBlanket(pIWbemServices, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE,
+	hr = CoSetProxyBlanket(pIWbemServices.Get(), RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE,
 		NULL, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL,EOAC_DEFAULT);
 
 	BSTR bstrWQL = SysAllocString(L"WQL");
 	BSTR bstrPath = SysAllocString(L"select * from Win32_VideoController");
-	IEnumWbemClassObject* pEnum;
+	Microsoft::WRL::ComPtr<IEnumWbemClassObject> pEnum;
 	hr = pIWbemServices->ExecQuery(bstrWQL, bstrPath, WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
 
 	ULONG uReturned = 0;
@@ -188,11 +187,8 @@ std::string GetVideoCardDriverVersion() {
 		}
 	}
 
-	pEnum->Release();
 	SysFreeString(bstrPath);
 	SysFreeString(bstrWQL);
-	pIWbemServices->Release();
-	pIWbemLocator->Release();
 	SysFreeString(bstrServer);
 	CoUninitialize();
 	return retvalue;

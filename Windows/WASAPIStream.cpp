@@ -159,8 +159,7 @@ public:
 			// Get enumerator for audio endpoint devices.
 			hr = CoCreateInstance(__uuidof(MMDeviceEnumerator),
 				NULL, CLSCTX_INPROC_SERVER,
-				__uuidof(IMMDeviceEnumerator),
-				(void**)&_pEnumerator);
+				IID_PPV_ARGS(&_pEnumerator));
 		}
 		if (hr == S_OK && _pEnumerator) {
 			hr = _pEnumerator->GetDevice(pwstrId, &pDevice);
