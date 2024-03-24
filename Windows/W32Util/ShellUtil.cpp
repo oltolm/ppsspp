@@ -201,7 +201,7 @@ static HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lp
 
 	// Get a pointer to the IShellLink interface. It is assumed that CoInitialize
 	// has already been called.
-	hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&psl));
+	hres = CoCreateInstance(__uuidof(ShellLink), NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&psl));
 	if (SUCCEEDED(hres) && psl) {
 		Microsoft::WRL::ComPtr<IPersistFile> ppf;
 
