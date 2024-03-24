@@ -25,11 +25,6 @@
 
 #ifdef _MSC_VER
 #pragma comment(lib, "ole32.lib")
-
-const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
-const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
-const IID IID_IAudioClient = __uuidof(IAudioClient);
-const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 #endif
 
 // Adapted from a MSDN sample.
@@ -83,7 +78,7 @@ public:
 		if (IID_IUnknown == riid) {
 			AddRef();
 			*ppvInterface = (IUnknown*)this;
-		} else if (IID_IMMNotificationClient == riid) {
+		} else if (__uuidof(IMMNotificationClient) == riid) {
 			AddRef();
 			*ppvInterface = (IMMNotificationClient*)this;
 		} else {
@@ -156,7 +151,7 @@ public:
 		if (_pEnumerator == NULL)
 		{
 			// Get enumerator for audio endpoint devices.
-			hr = CoCreateInstance(CLSID_MMDeviceEnumerator,
+			hr = CoCreateInstance(__uuidof(MMDeviceEnumerator),
 				NULL, CLSCTX_INPROC_SERVER,
 				IID_PPV_ARGS(&_pEnumerator));
 		}
@@ -284,7 +279,7 @@ bool WASAPIAudioThread::ActivateDefaultDevice() {
 		return false;
 
 	_assert_(audioInterface_ == nullptr);
-	hresult = device_->Activate(IID_IAudioClient, CLSCTX_ALL, nullptr, &audioInterface_);
+	hresult = device_->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &audioInterface_);
 	if (FAILED(hresult) || audioInterface_ == nullptr)
 		return false;
 
@@ -443,7 +438,7 @@ void WASAPIAudioThread::Run() {
 	// Adapted from http://msdn.microsoft.com/en-us/library/windows/desktop/dd316756(v=vs.85).aspx
 
 	_assert_(deviceEnumerator_ == nullptr);
-	HRESULT hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
+	HRESULT hresult = CoCreateInstance(__uuidof(MMDeviceEnumerator),
 		nullptr, /* Object is not created as the part of the aggregate */
 		CLSCTX_ALL, IID_PPV_ARGS(&deviceEnumerator_));
 
