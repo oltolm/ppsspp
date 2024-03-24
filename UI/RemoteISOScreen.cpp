@@ -64,7 +64,7 @@ enum class ServerAllowStatus {
 static ServerAllowStatus IsServerAllowed(int port) {
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	Microsoft::WRL::ComPtr<INetFwMgr> fwMgr;
-	HRESULT hr = CoCreateInstance(CLSID_NetFwMgr, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&fwMgr));
+	HRESULT hr = CoCreateInstance(__uuidof(NetFwMgr), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&fwMgr));
 	if (FAILED(hr)) {
 		return ServerAllowStatus::UNKNOWN;
 	}
