@@ -1475,7 +1475,7 @@ void OpenGLContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount
 		if (draw.bindTexture) {
 			renderManager_.BindTexture(0, ((OpenGLTexture *)draw.bindTexture)->GetTex());
 		} else if (draw.bindFramebufferAsTex) {
-			renderManager_.BindFramebufferAsTexture(((OpenGLFramebuffer*)draw.bindFramebufferAsTex)->framebuffer_, 0, GL_COLOR_BUFFER_BIT);
+			renderManager_.BindFramebufferAsTexture(((OpenGLFramebuffer*)draw.bindFramebufferAsTex)->framebuffer_.get(), 0, GL_COLOR_BUFFER_BIT);
 		}
 		GLRect2D scissor;
 		scissor.x = draw.clipx;
