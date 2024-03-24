@@ -3,6 +3,7 @@
 #include "Common/CommonWindows.h"
 #include <d3d11.h>
 #include <WinError.h>
+#include <wrl/client.h>
 
 #include "Common/Log.h"
 #include "Common/System/Display.h"
@@ -27,6 +28,8 @@
 #if PPSSPP_PLATFORM(UWP)
 #error This file should not be compiled for UWP.
 #endif
+
+using Microsoft::WRL::ComPtr;
 
 HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 	bool windowed = true;
@@ -69,13 +72,13 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	std::vector<std::string> adapterNames;
 	std::string chosenAdapterName;
 	if (result == LoadD3D11Error::SUCCESS) {
-		std::vector<IDXGIAdapter *> adapters;
+		std::vector<ComPtr<IDXGIAdapter>> adapters;
 		int chosenAdapter = 0;
-		IDXGIFactory* pFactory = nullptr;
+		ComPtr<IDXGIFactory> pFactory;
 
-		hr = ptr_CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory);
+		hr = ptr_CreateDXGIFactory(IID_PPV_ARGS(&pFactory));
 		if (SUCCEEDED(hr)) {
-			IDXGIAdapter* pAdapter;
+			ComPtr<IDXGIAdapter> pAdapter;
 			for (UINT i = 0; pFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND; i++) {
 				adapters.push_back(pAdapter);
 				DXGI_ADAPTER_DESC desc;
@@ -88,15 +91,12 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 			}
 			if (!adapters.empty()) {
 				chosenAdapterName = adapterNames[chosenAdapter];
-				hr = CreateTheDevice(adapters[chosenAdapter]);
-				for (int i = 0; i < (int)adapters.size(); i++) {
-					adapters[i]->Release();
-				}
+				hr = CreateTheDevice(adapters[chosenAdapter].Get());
+				adapters.clear();
 			} else {
 				// No adapters found. Trip the error path below.
 				hr = E_FAIL;
 			}
-			pFactory->Release();
 		}
 	}
 
@@ -126,17 +126,17 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		return false;
 	}
 
-	if (FAILED(device_->QueryInterface(__uuidof (ID3D11Device1), (void **)&device1_))) {
+	if (FAILED(device_.As(&device1_))) {
 		device1_ = nullptr;
 	}
 
-	if (FAILED(context_->QueryInterface(__uuidof (ID3D11DeviceContext1), (void **)&context1_))) {
+	if (FAILED(context_.As(&context1_))) {
 		context1_ = nullptr;
 	}
 
 #ifdef _DEBUG
-	if (SUCCEEDED(device_->QueryInterface(__uuidof(ID3D11Debug), (void**)&d3dDebug_))) {
-		if (SUCCEEDED(d3dDebug_->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&d3dInfoQueue_))) {
+	if (SUCCEEDED(device_.As(&d3dDebug_))) {
+		if (SUCCEEDED(d3dDebug_.As(&d3dInfoQueue_))) {
 			d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
 			d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
 			d3dInfoQueue_->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_WARNING, true);
@@ -150,19 +150,17 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	W32Util::GetWindowRes(hWnd_, &width, &height);
 
 	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
-	IDXGIFactory1 *dxgiFactory = nullptr;
-	IDXGIDevice *dxgiDevice = nullptr;
-	IDXGIAdapter *adapter = nullptr;
-	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
+	ComPtr<IDXGIFactory1> dxgiFactory;
+	ComPtr<IDXGIDevice> dxgiDevice;
+	ComPtr<IDXGIAdapter> adapter;
+	hr = device_.As(&dxgiDevice);
 	if (SUCCEEDED(hr)) {
 		hr = dxgiDevice->GetAdapter(&adapter);
 		if (SUCCEEDED(hr)) {
-			hr = adapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory));
+			hr = adapter->GetParent(IID_PPV_ARGS(&dxgiFactory));
 			DXGI_ADAPTER_DESC desc;
 			adapter->GetDesc(&desc);
-			adapter->Release();
 		}
-		dxgiDevice->Release();
 	}
 
 	// DirectX 11.0 systems
@@ -180,11 +178,10 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	sd.SampleDesc.Quality = 0;
 	sd.Windowed = TRUE;
 
-	hr = dxgiFactory->CreateSwapChain(device_, &sd, &swapChain_);
+	hr = dxgiFactory->CreateSwapChain(device_.Get(), &sd, &swapChain_);
 	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
-	dxgiFactory->Release();
 
-	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, swapChain_, featureLevel_, hWnd_, adapterNames, g_Config.iInflightFrames);
+	draw_ = Draw::T3DCreateD3D11Context(device_.Get(), context_.Get(), device1_.Get(), context1_.Get(), swapChain_.Get(), featureLevel_, hWnd_, adapterNames, g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::DIRECT3D11, chosenAdapterName);
 	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
 	_assert_msg_(success, "Failed to compile preset shaders");
@@ -195,16 +192,13 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 
 void D3D11Context::LostBackbuffer() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, width, height, nullptr);
-	bbRenderTargetTex_->Release();
 	bbRenderTargetTex_ = nullptr;
-	bbRenderTargetView_->Release();
 	bbRenderTargetView_ = nullptr;
 }
 
 void D3D11Context::GotBackbuffer() {
 	// Create a render target view
-	ID3D11Texture2D* pBackBuffer = nullptr;
-	HRESULT hr = swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&bbRenderTargetTex_));
+	HRESULT hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&bbRenderTargetTex_));
 	if (FAILED(hr))
 		return;
 
@@ -213,10 +207,10 @@ void D3D11Context::GotBackbuffer() {
 	width = bbDesc.Width;
 	height = bbDesc.Height;
 
-	hr = device_->CreateRenderTargetView(bbRenderTargetTex_, nullptr, &bbRenderTargetView_);
+	hr = device_->CreateRenderTargetView(bbRenderTargetTex_.Get(), nullptr, &bbRenderTargetView_);
 	if (FAILED(hr))
 		return;
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, bbRenderTargetView_, bbRenderTargetTex_);
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, bbRenderTargetView_.Get(), bbRenderTargetTex_.Get());
 }
 
 void D3D11Context::Resize() {
@@ -234,19 +228,14 @@ void D3D11Context::Shutdown() {
 	delete draw_;
 	draw_ = nullptr;
 
-	swapChain_->Release();
 	swapChain_ = nullptr;
-	if (context1_)
-		context1_->Release();
-	if (device1_)
-		device1_->Release();
+	context1_ = nullptr;
 	device1_ = nullptr;
-	device_->Release();
+	device1_ = nullptr;
 	device_ = nullptr;
 
 	context_->ClearState();
 	context_->Flush();
-	context_->Release();
 	context_ = nullptr;
 
 #ifdef _DEBUG
@@ -257,13 +246,9 @@ void D3D11Context::Shutdown() {
 	}
 	if (d3dDebug_) {
 		d3dDebug_->ReportLiveDeviceObjects(D3D11_RLDO_FLAGS(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL));
-		d3dDebug_->Release();
 		d3dDebug_ = nullptr;
 	}
-	if (d3dInfoQueue_) {
-		d3dInfoQueue_->Release();
-		d3dInfoQueue_ = nullptr;
-	}
+	d3dInfoQueue_ = nullptr;
 #endif
 
 	hWnd_ = nullptr;

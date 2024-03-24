@@ -147,7 +147,7 @@ std::string GetVideoCardDriverVersion() {
 	}
 
 	ComPtr<IWbemLocator> pIWbemLocator;
-	hr = CoCreateInstance(CLSID_WbemLocator, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pIWbemLocator));
+	hr = CoCreateInstance(__uuidof(WbemLocator), NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pIWbemLocator));
 	if (FAILED(hr)) {
 		CoUninitialize();
 		return retvalue;
