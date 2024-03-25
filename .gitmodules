@@ -59,6 +59,14 @@
 [submodule "ext/OpenXR-SDK"]
 	path = ext/OpenXR-SDK
 	url = https://github.com/KhronosGroup/OpenXR-SDK.git
+[submodule "ext/SPIRV-Tools"]
+	path = ext/SPIRV-Tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+	branch = main
+[submodule "ext/SPIRV-Headers"]
+	path = ext/SPIRV-Headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers.git
+	branch = main
 [submodule "ios/MoltenVK"]
 	path = ios/MoltenVK
 	url = https://github.com/hrydgard/ppsspp-moltenvk.git
