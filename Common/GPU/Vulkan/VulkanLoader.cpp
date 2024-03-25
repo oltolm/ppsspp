@@ -433,7 +433,7 @@ bool VulkanMayBeAvailable() {
 
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	for (const char *blacklisted_name : device_name_blacklist) {
-		if (!strcmp(name.c_str(), blacklisted_name)) {
+		if (name == blacklisted_name) {
 			INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Device blacklisted ('%s')", name.c_str());
 			g_vulkanAvailabilityChecked = true;
 			g_vulkanMayBeAvailable = false;
