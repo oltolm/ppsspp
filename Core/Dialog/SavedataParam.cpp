@@ -2000,7 +2000,7 @@ int SavedataParam::GetSaveCryptMode(const SceUtilitySavedataParam *param, const 
 
 bool SavedataParam::IsInSaveDataList(const std::string &saveName, int count) {
 	for(int i = 0; i < count; ++i) {
-		if(strcmp(saveDataList[i].saveName.c_str(),saveName.c_str()) == 0)
+		if(saveDataList[i].saveName == saveName)
 			return true;
 	}
 	return false;
