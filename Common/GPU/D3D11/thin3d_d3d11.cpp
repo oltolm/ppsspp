@@ -324,7 +324,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 
 	// Hide D3D9 when we know it likely won't work well.
 	caps_.supportsD3D9 = true;
-	if (!strcmp(adapterDesc_.c_str(), "Intel(R) Iris(R) Xe Graphics")) {
+	if (adapterDesc_ == "Intel(R) Iris(R) Xe Graphics") {
 		caps_.supportsD3D9 = false;
 	}
 
