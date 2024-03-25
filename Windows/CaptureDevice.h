@@ -25,6 +25,7 @@
 #include <vector>
 #include <queue>
 #include <thread>
+#include <wrl/client.h>
 
 #include "Core/HLE/sceUsbMic.h"
 
@@ -226,9 +227,9 @@ protected:
 	bool isDeviceChanged = false;
 
 // MF interface.
-	ReaderCallback *m_pCallback = nullptr;
-	IMFSourceReader *m_pReader = nullptr;
-	IMFMediaSource *m_pSource = nullptr;
+	Microsoft::WRL::ComPtr<ReaderCallback> m_pCallback;
+	Microsoft::WRL::ComPtr<IMFSourceReader> m_pReader;
+	Microsoft::WRL::ComPtr<IMFMediaSource> m_pSource;
 
 // Message loop.
 	std::mutex mutex;

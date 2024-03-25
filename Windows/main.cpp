@@ -86,11 +86,13 @@
 #include "Windows/main.h"
 
 
+using Microsoft::WRL::ComPtr;
+
 // Nvidia OpenGL drivers >= v302 will check if the application exports a global
 // variable named NvOptimusEnablement to know if it should run the app in high
 // performance graphics mode or using the IGP.
 extern "C" {
-	__declspec(dllexport) DWORD NvOptimusEnablement = 1;
+__declspec(dllexport) DWORD NvOptimusEnablement = 1;
 }
 
 // Also on AMD PowerExpress: https://community.amd.com/thread/169965
@@ -147,7 +149,7 @@ std::string GetVideoCardDriverVersion() {
 		return retvalue;
 	}
 
-	Microsoft::WRL::ComPtr<IWbemLocator> pIWbemLocator;
+	ComPtr<IWbemLocator> pIWbemLocator;
 	hr = CoCreateInstance(__uuidof(WbemLocator), NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pIWbemLocator));
 	if (FAILED(hr)) {
 		CoUninitialize();
@@ -155,7 +157,7 @@ std::string GetVideoCardDriverVersion() {
 	}
 
 	BSTR bstrServer = SysAllocString(L"\\\\.\\root\\cimv2");
-	Microsoft::WRL::ComPtr<IWbemServices> pIWbemServices;
+	ComPtr<IWbemServices> pIWbemServices;
 	hr = pIWbemLocator->ConnectServer(bstrServer, NULL, NULL, 0L, 0L, NULL,	NULL, &pIWbemServices);
 	if (FAILED(hr)) {
 		SysFreeString(bstrServer);
@@ -168,12 +170,12 @@ std::string GetVideoCardDriverVersion() {
 
 	BSTR bstrWQL = SysAllocString(L"WQL");
 	BSTR bstrPath = SysAllocString(L"select * from Win32_VideoController");
-	Microsoft::WRL::ComPtr<IEnumWbemClassObject> pEnum;
+	ComPtr<IEnumWbemClassObject> pEnum;
 	hr = pIWbemServices->ExecQuery(bstrWQL, bstrPath, WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
 
 	ULONG uReturned = 0;
 	VARIANT var{};
-	IWbemClassObject* pObj = NULL;
+	ComPtr<IWbemClassObject> pObj;
 	if (!FAILED(hr)) {
 		hr = pEnum->Next(WBEM_INFINITE, 1, &pObj, &uReturned);
 	}

@@ -11,12 +11,14 @@
 
 #include "Common/Thread/ThreadUtil.h"
 
+#include <memory>
 #include <mutex>
 #include <Objbase.h>
 #include <Mmreg.h>
 #include <MMDeviceAPI.h>
 #include <AudioClient.h>
 #include <AudioPolicy.h>
+#include <wrl/client.h>
 #include "Functiondiscoverykeys_devpkey.h"
 
 // Includes some code from https://msdn.microsoft.com/en-us/library/dd370810%28VS.85%29.aspx
@@ -32,32 +34,28 @@ const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 
 // Adapted from a MSDN sample.
 
-#define SAFE_RELEASE(punk)  \
-              if ((punk) != NULL)  \
-                { (punk)->Release(); (punk) = NULL; }
+using Microsoft::WRL::ComPtr;
 
 class CMMNotificationClient final : public IMMNotificationClient {
 public:
-	CMMNotificationClient() {
+	CMMNotificationClient(): currentDevice_(nullptr, &::CoTaskMemFree) {
 	}
 
 	virtual ~CMMNotificationClient() {
-		CoTaskMemFree(currentDevice_);
-		currentDevice_ = nullptr;
-		SAFE_RELEASE(_pEnumerator)
 	}
 
 	void SetCurrentDevice(IMMDevice *device) {
 		std::lock_guard<std::mutex> guard(lock_);
 
-		CoTaskMemFree(currentDevice_);
-		currentDevice_ = nullptr;
-		if (!device || FAILED(device->GetId(&currentDevice_))) {
-			currentDevice_ = nullptr;
+		if (!device) {
+			wchar_t *currentDevice;
+			if (SUCCEEDED(device->GetId(&currentDevice))) {
+				currentDevice_.reset(currentDevice);
+			}
 		}
 
 		if (currentDevice_) {
-			INFO_LOG(SCEAUDIO, "Switching to WASAPI audio device: '%s'", GetDeviceName(currentDevice_).c_str());
+			INFO_LOG(SCEAUDIO, "Switching to WASAPI audio device: '%s'", GetDeviceName(currentDevice_.get()).c_str());
 		}
 
 		deviceChanged_ = false;
@@ -105,9 +103,9 @@ public:
 		}
 
 		// pwstrDeviceId can be null. We consider that a new device, I think?
-		bool same = currentDevice_ == pwstrDeviceId;
+		bool same = currentDevice_.get() == pwstrDeviceId;
 		if (!same && currentDevice_ && pwstrDeviceId) {
-			same = !wcscmp(currentDevice_, pwstrDeviceId);
+			same = !wcscmp(currentDevice_.get(), pwstrDeviceId);
 		}
 		if (same) {
 			// Already the current device, nothing to do.
@@ -149,8 +147,8 @@ public:
 	std::string GetDeviceName(LPCWSTR pwstrId)
 	{
 		HRESULT hr = S_OK;
-		IMMDevice *pDevice = NULL;
-		IPropertyStore *pProps = NULL;
+		ComPtr<IMMDevice> pDevice;
+		ComPtr<IPropertyStore> pProps;
 		PROPVARIANT varString;
 		PropVariantInit(&varString);
 
@@ -176,16 +174,14 @@ public:
 
 		PropVariantClear(&varString);
 
-		SAFE_RELEASE(pProps)
-		SAFE_RELEASE(pDevice)
 		return name;
 	}
 
 private:
 	std::mutex lock_;
 	LONG _cRef = 1;
-	IMMDeviceEnumerator *_pEnumerator = nullptr;
-	wchar_t *currentDevice_ = nullptr;
+	ComPtr<IMMDeviceEnumerator> _pEnumerator;
+	std::unique_ptr<wchar_t, decltype(&::CoTaskMemFree)> currentDevice_;
 	bool deviceChanged_ = false;
 };
 
@@ -251,12 +247,12 @@ private:
 	int &sampleRate_;
 	StreamCallback &callback_;
 
-	IMMDeviceEnumerator *deviceEnumerator_ = nullptr;
-	IMMDevice *device_ = nullptr;
-	IAudioClient *audioInterface_ = nullptr;
-	CMMNotificationClient *notificationClient_ = nullptr;
+	ComPtr<IMMDeviceEnumerator> deviceEnumerator_;
+	ComPtr<IMMDevice> device_;
+	ComPtr<IAudioClient> audioInterface_;
+	ComPtr<CMMNotificationClient> notificationClient_;
 	WAVEFORMATEXTENSIBLE *deviceFormat_ = nullptr;
-	IAudioRenderClient *renderClient_ = nullptr;
+	ComPtr<IAudioRenderClient> renderClient_;
 	int16_t *shortBuf_ = nullptr;
 
 	enum class Format {
@@ -275,10 +271,8 @@ WASAPIAudioThread::~WASAPIAudioThread() {
 	shortBuf_ = nullptr;
 	ShutdownAudioDevice();
 	if (notificationClient_ && deviceEnumerator_)
-		deviceEnumerator_->UnregisterEndpointNotificationCallback(notificationClient_);
-	delete notificationClient_;
+		deviceEnumerator_->UnregisterEndpointNotificationCallback(notificationClient_.Get());
 	notificationClient_ = nullptr;
-	SAFE_RELEASE(deviceEnumerator_);
 }
 
 bool WASAPIAudioThread::ActivateDefaultDevice() {
@@ -326,11 +320,11 @@ bool WASAPIAudioThread::InitAudioDevice() {
 }
 
 void WASAPIAudioThread::ShutdownAudioDevice() {
-	SAFE_RELEASE(renderClient_);
+	renderClient_ = nullptr;
 	CoTaskMemFree(deviceFormat_);
 	deviceFormat_ = nullptr;
-	SAFE_RELEASE(audioInterface_);
-	SAFE_RELEASE(device_);
+	audioInterface_ = nullptr;
+	device_ = nullptr;
 }
 
 bool WASAPIAudioThread::DetectFormat() {
@@ -460,11 +454,10 @@ void WASAPIAudioThread::Run() {
 	}
 
 	notificationClient_ = new CMMNotificationClient();
-	notificationClient_->SetCurrentDevice(device_);
-	hresult = deviceEnumerator_->RegisterEndpointNotificationCallback(notificationClient_);
+	notificationClient_->SetCurrentDevice(device_.Get());
+	hresult = deviceEnumerator_->RegisterEndpointNotificationCallback(notificationClient_.Get());
 	if (FAILED(hresult)) {
 		// Let's just keep going, but release the client since it doesn't work.
-		delete notificationClient_;
 		notificationClient_ = nullptr;
 	}
 
@@ -550,7 +543,7 @@ void WASAPIAudioThread::Run() {
 				// TODO: Return to the old device here?
 				return;
 			}
-			notificationClient_->SetCurrentDevice(device_);
+			notificationClient_->SetCurrentDevice(device_.Get());
 			if (!InitAudioDevice()) {
 				ERROR_LOG(SCEAUDIO, "WASAPI: Could not init audio device");
 				return;
