@@ -688,7 +688,7 @@ DepthStencilState *D3D11DrawContext::CreateDepthStencilState(const DepthStencilS
 }
 
 BlendState *D3D11DrawContext::CreateBlendState(const BlendStateDesc &desc) {
-	D3D11BlendState *bs = new D3D11BlendState();
+	ComPtr<ID3D11BlendState> pBlendState;
 	D3D11_BLEND_DESC d3ddesc{};
 	d3ddesc.AlphaToCoverageEnable = FALSE;
 	d3ddesc.IndependentBlendEnable = FALSE;
@@ -700,9 +700,11 @@ BlendState *D3D11DrawContext::CreateBlendState(const BlendStateDesc &desc) {
 	d3ddesc.RenderTarget[0].SrcBlendAlpha = blendToD3D11[(int)desc.srcAlpha];
 	d3ddesc.RenderTarget[0].DestBlend = blendToD3D11[(int)desc.dstCol];
 	d3ddesc.RenderTarget[0].DestBlendAlpha = blendToD3D11[(int)desc.dstAlpha];
-	if (SUCCEEDED(device_->CreateBlendState(&d3ddesc, &bs->bs)))
+	if (SUCCEEDED(device_->CreateBlendState(&d3ddesc, &pBlendState))) {
+		D3D11BlendState *bs = new D3D11BlendState();
+		bs->bs = pBlendState;
 		return bs;
-	delete bs;
+	}
 	return nullptr;
 }
 
@@ -714,7 +716,7 @@ public:
 };
 
 RasterState *D3D11DrawContext::CreateRasterState(const RasterStateDesc &desc) {
-	D3D11RasterState *rs = new D3D11RasterState();
+	ComPtr<ID3D11RasterizerState> pRasterizerState;
 	D3D11_RASTERIZER_DESC d3ddesc{}; 
 	d3ddesc.FillMode = D3D11_FILL_SOLID;
 	switch (desc.cull) {
@@ -726,9 +728,11 @@ RasterState *D3D11DrawContext::CreateRasterState(const RasterStateDesc &desc) {
 	d3ddesc.FrontCounterClockwise = desc.frontFace == Facing::CCW;
 	d3ddesc.ScissorEnable = true;  // We always run with scissor enabled
 	d3ddesc.DepthClipEnable = true;
-	if (SUCCEEDED(device_->CreateRasterizerState(&d3ddesc, &rs->rs)))
+	if (SUCCEEDED(device_->CreateRasterizerState(&d3ddesc, &pRasterizerState))) {
+		D3D11RasterState *rs = new D3D11RasterState();
+		rs->rs = pRasterizerState;
 		return rs;
-	delete rs;
+	}
 	return nullptr;
 }
 
@@ -747,7 +751,7 @@ static const D3D11_TEXTURE_ADDRESS_MODE taddrToD3D11[] = {
 };
 
 SamplerState *D3D11DrawContext::CreateSamplerState(const SamplerStateDesc &desc) {
-	D3D11SamplerState *ss = new D3D11SamplerState();
+	ComPtr<ID3D11SamplerState> pSamplerState;
 	D3D11_SAMPLER_DESC d3ddesc{};
 	d3ddesc.AddressU = taddrToD3D11[(int)desc.wrapU];
 	d3ddesc.AddressV = taddrToD3D11[(int)desc.wrapV];
@@ -761,9 +765,11 @@ SamplerState *D3D11DrawContext::CreateSamplerState(const SamplerStateDesc &desc)
 	for (int i = 0; i < 4; i++) {
 		d3ddesc.BorderColor[i] = 1.0f;
 	}
-	if (SUCCEEDED(device_->CreateSamplerState(&d3ddesc, &ss->ss)))
+	if (SUCCEEDED(device_->CreateSamplerState(&d3ddesc, &pSamplerState))) {
+		D3D11SamplerState *ss = new D3D11SamplerState();
+		ss->ss = pSamplerState;
 		return ss;
-	delete ss;
+	}
 	return nullptr;
 }
 
@@ -962,7 +968,6 @@ bool D3D11Texture::Create(ID3D11DeviceContext *context, ID3D11Device *device, co
 
 	HRESULT hr = device->CreateTexture2D(&descColor, initDataParam, &tex_);
 	if (!SUCCEEDED(hr)) {
-		tex_ = nullptr;
 		return false;
 	}
 	hr = device->CreateShaderResourceView(tex_.Get(), nullptr, &view_);
@@ -1110,18 +1115,18 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	// OK, we can now proceed
 	data = (const uint8_t *)compiled.c_str();
 	dataSize = compiled.size();
-	D3D11ShaderModule *module = new D3D11ShaderModule(tag);
-	module->stage = stage;
-	module->byteCode_ = std::vector<uint8_t>(data, data + dataSize);
+	ComPtr<ID3D11VertexShader> pVertexShader;
+	ComPtr<ID3D11PixelShader> pPixelShader;
+	ComPtr<ID3D11GeometryShader> pGeometryShader;
 	switch (stage) {
 	case ShaderStage::Vertex:
-		result = device_->CreateVertexShader(data, dataSize, nullptr, &module->vs);
+		result = device_->CreateVertexShader(data, dataSize, nullptr, &pVertexShader);
 		break;
 	case ShaderStage::Fragment:
-		result = device_->CreatePixelShader(data, dataSize, nullptr, &module->ps);
+		result = device_->CreatePixelShader(data, dataSize, nullptr, &pPixelShader);
 		break;
 	case ShaderStage::Geometry:
-		result = device_->CreateGeometryShader(data, dataSize, nullptr, &module->gs);
+		result = device_->CreateGeometryShader(data, dataSize, nullptr, &pGeometryShader);
 		break;
 	default:
 		ERROR_LOG(Log::G3D, "Unsupported shader stage");
@@ -1129,10 +1134,13 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 		break;
 	}
 	if (result == S_OK) {
+		D3D11ShaderModule *module = new D3D11ShaderModule(tag);
+		module->stage = stage;
+		module->byteCode_ = std::vector<uint8_t>(data, data + dataSize);
+		module->vs = pVertexShader;
+		module->ps = pPixelShader;
+		module->gs = pGeometryShader;
 		return module;
-	} else {
-		delete module;
-		return nullptr;
 	}
 	return nullptr;
 }
@@ -1296,7 +1304,7 @@ public:
 };
 
 Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
-	D3D11Buffer *b = new D3D11Buffer();
+	ComPtr<ID3D11Buffer> pBuffer;
 	D3D11_BUFFER_DESC desc{};
 	desc.ByteWidth = (UINT)size;
 	desc.BindFlags = 0;
@@ -1310,12 +1318,13 @@ Buffer *D3D11DrawContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	desc.Usage = D3D11_USAGE_DYNAMIC;
 
-	b->size = size;
-	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &b->buf);
+	HRESULT hr = device_->CreateBuffer(&desc, nullptr, &pBuffer);
 	if (FAILED(hr)) {
-		delete b;
 		return nullptr;
 	}
+	D3D11Buffer *b = new D3D11Buffer();
+	b->size = size;
+	b->buf = pBuffer;
 	return b;
 }
 
@@ -1464,43 +1473,44 @@ uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {
 
 Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	HRESULT hr;
-	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height);
 
 	// We don't (yet?) support multiview for D3D11. Not sure if there's a way to do it.
 	// Texture arrays are supported but we don't have any other use cases yet.
 	_dbg_assert_(desc.numLayers == 1);
 
-	fb->colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	ComPtr<ID3D11Texture2D> colorTex;
+	ComPtr<ID3D11RenderTargetView> colorRTView;
+	ComPtr<ID3D11ShaderResourceView> colorSRView;
 	D3D11_TEXTURE2D_DESC descColor{};
 	descColor.Width = desc.width;
 	descColor.Height = desc.height;
 	descColor.MipLevels = 1;
 	descColor.ArraySize = 1;
-	descColor.Format = fb->colorFormat;
+	descColor.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	descColor.SampleDesc.Count = 1;
 	descColor.SampleDesc.Quality = 0;
 	descColor.Usage = D3D11_USAGE_DEFAULT;
 	descColor.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 	descColor.CPUAccessFlags = 0;
 	descColor.MiscFlags = 0;
-	hr = device_->CreateTexture2D(&descColor, nullptr, &fb->colorTex);
+	hr = device_->CreateTexture2D(&descColor, nullptr, &colorTex);
 	if (FAILED(hr)) {
-		delete fb;
 		return nullptr;
 	}
-	hr = device_->CreateRenderTargetView(fb->colorTex.Get(), nullptr, &fb->colorRTView);
+	hr = device_->CreateRenderTargetView(colorTex.Get(), nullptr, &colorRTView);
 	if (FAILED(hr)) {
-		delete fb;
 		return nullptr;
 	}
-	hr = device_->CreateShaderResourceView(fb->colorTex.Get(), nullptr, &fb->colorSRView);
+	hr = device_->CreateShaderResourceView(colorTex.Get(), nullptr, &colorSRView);
 	if (FAILED(hr)) {
-		delete fb;
 		return nullptr;
 	}
 
+	ComPtr<ID3D11Texture2D> depthStencilTex;
+	ComPtr<ID3D11DepthStencilView> depthStencilRTView;
+	ComPtr<ID3D11ShaderResourceView> depthSRView;
+	ComPtr<ID3D11ShaderResourceView> stencilSRView;
 	if (desc.z_stencil) {
-		fb->depthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		D3D11_TEXTURE2D_DESC descDepth{};
 		descDepth.Width = desc.width;
 		descDepth.Height = desc.height;
@@ -1513,18 +1523,16 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 		descDepth.CPUAccessFlags = 0;
 		descDepth.MiscFlags = 0;
-		hr = device_->CreateTexture2D(&descDepth, nullptr, &fb->depthStencilTex);
+		hr = device_->CreateTexture2D(&descDepth, nullptr, &depthStencilTex);
 		if (FAILED(hr)) {
-			delete fb;
 			return nullptr;
 		}
 		D3D11_DEPTH_STENCIL_VIEW_DESC descDSV{};
 		descDSV.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 		descDSV.Texture2D.MipSlice = 0;
-		hr = device_->CreateDepthStencilView(fb->depthStencilTex.Get(), &descDSV, &fb->depthStencilRTView);
+		hr = device_->CreateDepthStencilView(depthStencilTex.Get(), &descDSV, &depthStencilRTView);
 		if (FAILED(hr)) {
-			delete fb;
 			return nullptr;
 		}
 
@@ -1533,10 +1541,9 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		depthViewDesc.Texture2D.MostDetailedMip = 0;
 		depthViewDesc.Texture2D.MipLevels = 1;
 		depthViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		hr = device_->CreateShaderResourceView(fb->depthStencilTex.Get(), &depthViewDesc, &fb->depthSRView);
+		hr = device_->CreateShaderResourceView(depthStencilTex.Get(), &depthViewDesc, &depthSRView);
 		if (FAILED(hr)) {
 			WARN_LOG(Log::G3D, "Failed to create SRV for depth buffer.");
-			fb->depthSRView = nullptr;
 		}
 
 
@@ -1545,13 +1552,23 @@ Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 		depthStencilViewDesc.Texture2D.MostDetailedMip = 0;
 		depthStencilViewDesc.Texture2D.MipLevels = 1;
 		depthStencilViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		hr = device_->CreateShaderResourceView(fb->depthStencilTex.Get(), &depthViewDesc, &fb->stencilSRView);
+		hr = device_->CreateShaderResourceView(depthStencilTex.Get(), &depthViewDesc, &stencilSRView);
 		if (FAILED(hr)) {
 			WARN_LOG(Log::G3D, "Failed to create SRV for depth+stencil buffer.");
-			fb->depthSRView = nullptr;
 		}
 	}
 
+	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height);
+	fb->colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	if (desc.z_stencil) {
+		fb->depthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	}
+	fb->colorTex = colorTex;
+	fb->colorRTView = colorRTView;
+	fb->colorSRView = colorSRView;
+	fb->depthStencilTex = depthStencilTex;
+	fb->depthStencilRTView = depthStencilRTView;
+	fb->depthSRView = depthSRView;
 	return fb;
 }
 
