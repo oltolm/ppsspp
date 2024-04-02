@@ -19,6 +19,7 @@
 
 #include <algorithm>
 
+#include <memory>
 #include <png.h>
 #include "ext/jpge/jpge.h"
 
@@ -362,6 +363,7 @@ bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, Screensho
 	if (success) {
 		u8 *flipbuffer = nullptr;
 		const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
+		std::unique_ptr<u8[]> flipbuffer_ptr(flipbuffer);
 		success = buffer != nullptr;
 		if (success) {
 			if (width)
@@ -371,7 +373,6 @@ bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, Screensho
 
 			success = Save888RGBScreenshot(filename, fmt, buffer, w, h);
 		}
-		delete[] flipbuffer;
 	}
 
 	if (!success) {

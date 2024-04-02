@@ -19,6 +19,7 @@
 
 #include "ppsspp_config.h"
 
+#include <memory>
 #include <mutex>
 #include <vector>
 #include <cstdio>
@@ -28,7 +29,7 @@
 #include "Common/Log.h"
 #include "Common/File/Path.h"
 
-#define	MAX_MESSAGES 8000   
+#define	MAX_MESSAGES 8000
 
 extern const char *hleCurrentThreadName;
 
@@ -142,7 +143,7 @@ public:
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	ConsoleListener *GetConsoleListener() const {
-		return consoleLog_;
+		return consoleLog_.get();
 	}
 #endif
 
@@ -174,7 +175,7 @@ private:
 
 	LogChannel log_[(size_t)Log::NUMBER_OF_LOGS];
 #if PPSSPP_PLATFORM(WINDOWS)
-	ConsoleListener *consoleLog_ = nullptr;
+	std::unique_ptr<ConsoleListener> consoleLog_;
 #endif
 	// Stdio logging
 	void StdioLog(const LogMessage &message);

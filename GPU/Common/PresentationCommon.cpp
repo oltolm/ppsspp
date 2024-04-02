@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <set>
 #include <cstdint>
 #include "Common/GPU/thin3d.h"
@@ -233,13 +234,12 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 
 static std::string ReadShaderSrc(const Path &filename) {
 	size_t sz = 0;
-	char *data = (char *)g_VFS.ReadFile(filename.c_str(), &sz);
+	auto data = std::unique_ptr<char[]>((char *)g_VFS.ReadFile(filename.c_str(), &sz));
 	if (!data) {
 		return "";
 	}
 
-	std::string src(data, sz);
-	delete[] data;
+	std::string src(data.get(), sz);
 	return src;
 }
 
