@@ -27,7 +27,7 @@
 
 class RamCachingFileLoader : public ProxiedFileLoader {
 public:
-	RamCachingFileLoader(std::unique_ptr<FileLoader> backend);
+	RamCachingFileLoader(std::shared_ptr<FileLoader> backend);
 	~RamCachingFileLoader();
 
 	bool Exists() override;

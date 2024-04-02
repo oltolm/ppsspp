@@ -85,7 +85,7 @@ struct CoreParameter {
 	bool freezeNext = false;
 	bool frozen = false;
 
-	std::unique_ptr<FileLoader> mountIsoLoader;
+	std::shared_ptr<FileLoader> mountIsoLoader;
 	IdentifiedFileType fileType = IdentifiedFileType::UNKNOWN;
 
 	Compatibility compat;
