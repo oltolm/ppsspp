@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstring>
+#include <memory>
 #include <thread>
 #include <algorithm>
 
@@ -24,8 +25,8 @@
 #include "Core/FileLoaders/CachingFileLoader.h"
 
 // Takes ownership of backend.
-CachingFileLoader::CachingFileLoader(FileLoader *backend)
-	: ProxiedFileLoader(backend) {
+CachingFileLoader::CachingFileLoader(std::unique_ptr<FileLoader> backend)
+	: ProxiedFileLoader(std::move(backend)) {
 }
 
 void CachingFileLoader::Prepare() {
