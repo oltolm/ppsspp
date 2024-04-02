@@ -20,6 +20,7 @@
 #include <thread>
 #include <cstring>
 #include <cstdlib>
+#include <utility>
 
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
@@ -28,9 +29,9 @@
 #include "Common/Log.h"
 
 // Takes ownership of backend.
-RamCachingFileLoader::RamCachingFileLoader(std::unique_ptr<FileLoader> backend)
+RamCachingFileLoader::RamCachingFileLoader(std::shared_ptr<FileLoader> backend)
 	: ProxiedFileLoader(std::move(backend)) {
-	filesize_ = backend->FileSize();
+	filesize_ = backend_->FileSize();
 	if (filesize_ > 0) {
 		InitCache();
 	}

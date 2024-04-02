@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 #include "Common/File/AndroidContentURI.h"
@@ -223,7 +224,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	return IdentifiedFileType::UNKNOWN;
 }
 
-std::unique_ptr<FileLoader> ResolveFileLoaderTarget(std::unique_ptr<FileLoader> fileLoader) {
+std::shared_ptr<FileLoader> ResolveFileLoaderTarget(std::shared_ptr<FileLoader> fileLoader) {
 	std::string errorString;
 	IdentifiedFileType type = Identify_File(fileLoader.get(), &errorString);
 	if (type == IdentifiedFileType::PSP_PBP_DIRECTORY) {
@@ -252,13 +253,13 @@ Path ResolvePBPFile(const Path &filename) {
 	}
 }
 
-bool LoadFile(std::unique_ptr<FileLoader> *fileLoaderPtr, std::string *error_string) {
-	std::unique_ptr<FileLoader> &fileLoader = *fileLoaderPtr;
+bool LoadFile(std::shared_ptr<FileLoader> *fileLoaderPtr, std::string *error_string) {
+	std::shared_ptr<FileLoader> &fileLoader = *fileLoaderPtr;
 	IdentifiedFileType type = Identify_File(fileLoader.get(), error_string);
 	switch (type) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		{
-			fileLoader = ResolveFileLoaderTarget(std::move(fileLoader));
+			fileLoader = ResolveFileLoaderTarget(fileLoader);
 			if (fileLoader->Exists()) {
 				INFO_LOG(Log::Loader, "File is a PBP in a directory: %s", fileLoader->GetPath().c_str());
 				IdentifiedFileType ebootType = Identify_File(fileLoader.get(), error_string);
@@ -387,15 +388,14 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 		return false;
 	}
 
-	std::unique_ptr<FileLoader> loadedFile = ConstructFileLoader(filepath);
+	std::shared_ptr<FileLoader> loadedFile = ConstructFileLoader(filepath);
 
 	if (!loadedFile->Exists()) {
 		error = loadedFile->GetPath().ToVisualString() + " doesn't exist";
 		return false;
 	}
-	UpdateLoadedFile(std::move(loadedFile));
-	// FIXME
-	loadedFile = ResolveFileLoaderTarget(std::move(loadedFile));
+	loadedFile = ResolveFileLoaderTarget(loadedFile);
+	UpdateLoadedFile(loadedFile);
 
 	*fileLoader = loadedFile.get();
 
