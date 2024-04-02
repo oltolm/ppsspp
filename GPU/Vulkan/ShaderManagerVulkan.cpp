@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <memory>
 #ifdef _WIN32
 //#define SHADERLOG
 #endif
@@ -48,8 +49,8 @@
 // takes time here, and makes this worthy of parallelization, is GLSLtoSPV.
 // Takes ownership over tag.
 // This always returns something, checking the return value for null is not meaningful.
-static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *tag) {
-	auto compile = [=] {
+static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::unique_ptr<std::string> tag) {
+	auto compile = [=, &tag] {
 		PROFILE_THIS_SCOPE("shadercomp");
 
 		std::string errorMessage;
@@ -91,8 +92,7 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 #ifdef SHADERLOG
 			OutputDebugStringA("OK");
 #endif
-			if (tag)
-				delete tag;
+			tag = nullptr;
 		}
 		return shaderModule;
 	};
@@ -115,7 +115,7 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 	: vulkan_(vulkan), id_(id), flags_(flags) {
 	_assert_(!id.is_invalid());
 	source_ = code;
-	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str(), new std::string(FragmentShaderDesc(id)));
+	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str(), std::make_unique<std::string>(FragmentShaderDesc(id)));
 	VERBOSE_LOG(G3D, "Compiled fragment shader:\n%s\n", (const char *)code);
 }
 
@@ -147,7 +147,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, Vert
 	: vulkan_(vulkan), useHWTransform_(useHWTransform), flags_(flags), id_(id) {
 	_assert_(!id.is_invalid());
 	source_ = code;
-	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str(), new std::string(VertexShaderDesc(id)));
+	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str(), std::make_unique<std::string>(VertexShaderDesc(id)));
 	VERBOSE_LOG(G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
 }
 
@@ -179,7 +179,7 @@ VulkanGeometryShader::VulkanGeometryShader(VulkanContext *vulkan, GShaderID id, 
 	: vulkan_(vulkan), id_(id) {
 	_assert_(!id.is_invalid());
 	source_ = code;
-	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_GEOMETRY_BIT, source_.c_str(), new std::string(GeometryShaderDesc(id).c_str()));
+	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_GEOMETRY_BIT, source_.c_str(), std::make_unique<std::string>(GeometryShaderDesc(id).c_str()));
 	VERBOSE_LOG(G3D, "Compiled geometry shader:\n%s\n", (const char *)code);
 }
 

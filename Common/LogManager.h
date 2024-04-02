@@ -19,6 +19,7 @@
 
 #include "ppsspp_config.h"
 
+#include <memory>
 #include <mutex>
 #include <vector>
 #include <cstdarg>
@@ -115,10 +116,10 @@ private:
 	void operator=(const LogManager &) = delete;
 
 	LogChannel log_[(size_t)LogType::NUMBER_OF_LOGS];
-	FileLogListener *fileLog_ = nullptr;
-	ConsoleListener *consoleLog_ = nullptr;
-	OutputDebugStringLogListener *debuggerLog_ = nullptr;
-	RingbufferLogListener *ringLog_ = nullptr;
+	std::unique_ptr<FileLogListener> fileLog_;
+	std::unique_ptr<ConsoleListener> consoleLog_;
+	std::unique_ptr<OutputDebugStringLogListener> debuggerLog_;
+	std::unique_ptr<RingbufferLogListener> ringLog_;
 	static LogManager *logManager_;  // Singleton. Ugh.
 
 	std::mutex listeners_lock_;
@@ -158,15 +159,15 @@ public:
 	}
 
 	ConsoleListener *GetConsoleListener() const {
-		return consoleLog_;
+		return consoleLog_.get();
 	}
 
 	OutputDebugStringLogListener *GetDebuggerListener() const {
-		return debuggerLog_;
+		return debuggerLog_.get();
 	}
 
 	RingbufferLogListener *GetRingbufferListener() const {
-		return ringLog_;
+		return ringLog_.get();
 	}
 
 	static inline LogManager* GetInstance() {

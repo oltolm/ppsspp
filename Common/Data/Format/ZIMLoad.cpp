@@ -1,6 +1,8 @@
+#include <cstdint>
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <zstd.h>
 
 #include "zlib.h"
@@ -126,16 +128,15 @@ int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int
 
 int LoadZIM(const char *filename, int *width, int *height, int *format, uint8_t **image) {
 	size_t size;
-	uint8_t *buffer = g_VFS.ReadFile(filename, &size);
+	auto buffer = std::unique_ptr<uint8_t[]>(g_VFS.ReadFile(filename, &size));
 	if (!buffer) {
 		ERROR_LOG(IO, "Couldn't read data for '%s'", filename);
 		return 0;
 	}
 
-	int retval = LoadZIMPtr(buffer, size, width, height, format, image);
+	int retval = LoadZIMPtr(buffer.get(), size, width, height, format, image);
 	if (!retval) {
 		ERROR_LOG(IO, "Not a valid ZIM file: %s (size: %lld bytes)", filename, (long long)size);
 	}
-	delete [] buffer;
 	return retval;
 }

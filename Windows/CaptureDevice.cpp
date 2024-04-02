@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <memory>
 #include <shlwapi.h>
 #include <wrl/client.h>
 
@@ -162,7 +163,7 @@ HRESULT ReaderCallback::OnReadSample(
 		switch (device->type) {
 		case CAPTUREDEVIDE_TYPE::VIDEO: {
 			BYTE *pbScanline0 = nullptr;
-			VideoBufferLock *videoBuffer = nullptr;
+			std::unique_ptr<VideoBufferLock> videoBuffer;
 			int imgJpegSize = device->imgJpegSize;
 			unsigned char* invertedSrcImg = nullptr;
 			LONG srcPadding = 0;
@@ -176,7 +177,7 @@ HRESULT ReaderCallback::OnReadSample(
 
 			// pSample can be null, in this case ReadSample still should be called to request next frame.
 			if (pSample) {
-				videoBuffer = new VideoBufferLock(pBuffer.Get());
+				videoBuffer.reset(new VideoBufferLock(pBuffer.Get()));
 				hr = videoBuffer->LockBuffer(device->deviceParam.default_stride, device->deviceParam.height, &pbScanline0, &lStride);
 
 				if (lStride > 0)
@@ -244,7 +245,6 @@ HRESULT ReaderCallback::OnReadSample(
 					nullptr
 				);
 			}
-			delete videoBuffer;
 			break;
 		}
 		case CAPTUREDEVIDE_TYPE::AUDIO: {
@@ -727,8 +727,6 @@ std::vector<std::string> WindowsCaptureDevice::getDeviceList(bool forceEnum, int
 	HRESULT hr = S_OK;
 	UINT32 count = 0;
 	LPWSTR pwstrName = nullptr;
-	char *cstrName = nullptr;
-	std::string strName;
 	DWORD dwMinSize = 0;
 	std::vector<std::string> deviceList;
 
@@ -763,10 +761,9 @@ std::vector<std::string> WindowsCaptureDevice::getDeviceList(bool forceEnum, int
 				hr = E_FAIL;
 		}
 		if (SUCCEEDED(hr)) {
-			cstrName = new char[dwMinSize];
-			WideCharToMultiByte(CP_UTF8, 0, pwstrName, -1, cstrName, dwMinSize, NULL, FALSE);
-			strName = cstrName;
-			delete[] cstrName;
+			auto cstrName = std::make_unique<char[]>(dwMinSize);
+			WideCharToMultiByte(CP_UTF8, 0, pwstrName, -1, cstrName.get(), dwMinSize, NULL, FALSE);
+			std::string strName = cstrName.get();
 
 			deviceList.push_back(strName);
 		}

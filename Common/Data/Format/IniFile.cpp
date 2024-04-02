@@ -2,10 +2,12 @@
 // Taken from Dolphin but relicensed by me, Henrik Rydgard, under the MIT
 // license as I wrote the whole thing originally and it has barely changed.
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstdio>
 
 #include <inttypes.h>
+#include <memory>
 
 // Hm, what's this for?
 #ifndef _MSC_VER
@@ -518,11 +520,10 @@ bool IniFile::Load(const Path &path)
 
 bool IniFile::LoadFromVFS(VFSInterface &vfs, const std::string &filename) {
 	size_t size;
-	uint8_t *data = vfs.ReadFile(filename.c_str(), &size);
+	auto data = std::unique_ptr<uint8_t[]>(vfs.ReadFile(filename.c_str(), &size));
 	if (!data)
 		return false;
-	std::string str((const char*)data, size);
-	delete [] data;
+	std::string str((const char*)data.get(), size);
 
 	std::stringstream sstream(str);
 	return Load(sstream);
@@ -531,12 +532,12 @@ bool IniFile::LoadFromVFS(VFSInterface &vfs, const std::string &filename) {
 bool IniFile::Load(std::istream &in) {
 	// Maximum number of letters in a line
 	static const int MAX_BYTES = 1024*32;
-	char *templine = new char[MAX_BYTES];  // avoid using up massive stack space
+	auto templine = std::make_unique<char[]>(MAX_BYTES);  // avoid using up massive stack space
 
 	while (!(in.eof() || in.fail()))
 	{
-		in.getline(templine, MAX_BYTES);
-		std::string line = templine;
+		in.getline(templine.get(), MAX_BYTES);
+		std::string line = templine.get();
 
 		// Remove UTF-8 byte order marks.
 		if (line.substr(0, 3) == "\xEF\xBB\xBF") {
@@ -575,7 +576,6 @@ bool IniFile::Load(std::istream &in) {
 		}
 	}
 
-	delete[] templine;
 	return true;
 }
 

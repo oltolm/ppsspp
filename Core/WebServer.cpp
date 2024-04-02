@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -244,15 +245,14 @@ static void DiscHandler(const http::ServerRequest &request, const Path &filename
 		request.WriteHttpResponseHeader("1.0", 206, len, "application/octet-stream", contentRange);
 
 		const size_t CHUNK_SIZE = 16 * 1024;
-		char *buf = new char[CHUNK_SIZE];
+		auto buf = std::make_unique<char[]>(CHUNK_SIZE);
 		for (s64 pos = 0; pos < len; pos += CHUNK_SIZE) {
 			s64 chunklen = std::min(len - pos, (s64)CHUNK_SIZE);
-			if (fread(buf, chunklen, 1, fp) != 1)
+			if (fread(buf.get(), chunklen, 1, fp) != 1)
 				break;
-			request.Out()->Push(buf, chunklen);
+			request.Out()->Push(buf.get(), chunklen);
 		}
 		fclose(fp);
-		delete[] buf;
 		request.Out()->Flush();
 	} else {
 		request.WriteHttpResponseHeader("1.0", 418, -1, "text/plain");
@@ -407,7 +407,7 @@ static void ExecuteWebServer() {
 
 	AndroidJNIThreadContext context;  // Destructor detaches.
 
-	auto http = new http::Server(new NewThreadExecutor());
+	auto http = new http::Server(std::make_unique<NewThreadExecutor>());
 	http->RegisterHandler("/", &HandleListing);
 	// This lists all the (current) recent ISOs.
 	http->SetFallbackHandler(&HandleFallback);

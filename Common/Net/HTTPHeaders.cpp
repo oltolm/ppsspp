@@ -16,16 +16,12 @@ RequestHeader::RequestHeader() {
 }
 
 RequestHeader::~RequestHeader() {
-	delete [] referer;
-	delete [] user_agent;
-	delete [] resource;
-	delete [] params;
 }
 
 bool RequestHeader::GetParamValue(const char *param_name, std::string *value) const {
 	if (!params)
 		return false;
-	std::string p(params);
+	std::string p(params.get());
 	std::vector<std::string_view> v;
 	SplitString(p, '&', v);
 	for (size_t i = 0; i < v.size(); i++) {
@@ -84,14 +80,14 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 			status = 400;
 			return -1;
 		}
-		resource = new char[resource_name_len + 1];
-		memcpy(resource, buffer, resource_name_len);
-		resource[resource_name_len] = '\0';
+		resource.reset(new char[resource_name_len + 1]);
+		memcpy(resource.get(), buffer, resource_name_len);
+		resource.get()[resource_name_len] = '\0';
 		if (q_ptr) {
 			int param_length = endptr - q_ptr - 1;
-			params = new char[param_length + 1];
-			memcpy(params, q_ptr + 1, param_length);
-			params[param_length] = '\0';
+			params.reset(new char[param_length + 1]);
+			memcpy(params.get(), q_ptr + 1, param_length);
+			params.get()[param_length] = '\0';
 		}
 		if (strstr(buffer, "HTTP/"))
 			type = FULL;
@@ -117,12 +113,12 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 	int value_len = (int)strlen(buffer);
 
 	if (!strncasecmp(key, "User-Agent", key_len)) {
-		user_agent = new char[value_len + 1];
-		memcpy(user_agent, buffer, value_len + 1);
-		VERBOSE_LOG(IO, "user-agent: %s", user_agent);
+		user_agent.reset(new char[value_len + 1]);
+		memcpy(user_agent.get(), buffer, value_len + 1);
+		VERBOSE_LOG(IO, "user-agent: %s", user_agent.get());
 	} else if (!strncasecmp(key, "Referer", key_len)) {
-		referer = new char[value_len + 1];
-		memcpy(referer, buffer, value_len + 1);
+		referer.reset(new char[value_len + 1]);
+		memcpy(referer.get(), buffer, value_len + 1);
 	} else if (!strncasecmp(key, "Content-Length", key_len)) {
 		content_length = atoi(buffer);
 		VERBOSE_LOG(IO, "Content-Length: %i", (int)content_length);

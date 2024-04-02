@@ -1,5 +1,7 @@
 #include "Common/TimeUtil.h"
 #include "ppsspp_config.h"
+#include <memory>
+#include <utility>
 
 #ifdef _WIN32
 
@@ -61,10 +63,8 @@ namespace http {
 const char *const DEFAULT_MIME_TYPE = "text/html; charset=utf-8";
 
 ServerRequest::ServerRequest(int fd)
-	: fd_(fd) {
-	in_ = new net::InputSink(fd);
-	out_ = new net::OutputSink(fd);
-	header_.ParseHeaders(in_);
+	: fd_(fd), in_(new net::InputSink(fd)), out_(new net::OutputSink(fd)) {
+	header_.ParseHeaders(in_.get());
 
 	if (header_.ok) {
 		VERBOSE_LOG(IO, "The request carried with it %i bytes", (int)header_.content_length);
@@ -79,11 +79,9 @@ ServerRequest::~ServerRequest() {
 	if (!in_->Empty()) {
 		ERROR_LOG(IO, "Input not empty - invalid request?");
 	}
-	delete in_;
 	if (!out_->Empty()) {
-		WARN_LOG(IO, "Output not empty - connection abort? (%s) (%d bytes)", this->header_.resource, (int)out_->BytesRemaining());
+		WARN_LOG(IO, "Output not empty - connection abort? (%s) (%d bytes)", this->header_.resource.get(), (int)out_->BytesRemaining());
 	}
-	delete out_;
 }
 
 void ServerRequest::WriteHttpResponseHeader(const char *ver, int status, int64_t size, const char *mimeType, const char *otherHeaders) const {
@@ -141,14 +139,13 @@ void ServerRequest::Close() {
 	}
 }
 
-Server::Server(NewThreadExecutor *executor)
-	: port_(0), executor_(executor) {
+Server::Server(std::unique_ptr<NewThreadExecutor> executor)
+	: port_(0), executor_(std::move(executor)) {
 	RegisterHandler("/", std::bind(&Server::HandleListing, this, std::placeholders::_1));
 	SetFallbackHandler(std::bind(&Server::Handle404, this, std::placeholders::_1));
 }
 
 Server::~Server() {
-	delete executor_;
 }
 
 void Server::RegisterHandler(const char *url_path, UrlHandlerFunc handler) {

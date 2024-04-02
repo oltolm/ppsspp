@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <memory>
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -1330,8 +1331,8 @@ bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 		}
 	}
 
-	GLRProgramFlags flags{};
-	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, locs_, flags);
+	GLRProgramFlags flags{};	
+	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, std::unique_ptr<PipelineLocData>(locs_), flags);
 	return true;
 }
 

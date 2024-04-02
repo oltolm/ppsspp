@@ -3,6 +3,7 @@
 #include "Windows/TouchInputHandler.h"
 
 #include <algorithm>
+#include <memory>
 
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
@@ -67,8 +68,8 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 	if (hasTouch()) {
 		UINT inputCount = LOWORD(wParam);
 		HTOUCHINPUT touchInputData = (HTOUCHINPUT)lParam;
-		TOUCHINPUT *inputs = new TOUCHINPUT[inputCount];
-		if (touchInfo(touchInputData, inputCount, inputs, sizeof(TOUCHINPUT))) {
+		auto inputs = std::make_unique<TOUCHINPUT[]>(inputCount);
+		if (touchInfo(touchInputData, inputCount, inputs.get(), sizeof(TOUCHINPUT))) {
 			for (UINT i = 0; i < inputCount; i++) {
 				float x, y;
 				if (!GetTouchPoint(hWnd, inputs[i], x, y))
@@ -92,7 +93,6 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 		} else {
 			WARN_LOG(SYSTEM, "Failed to read input data: %s", GetLastErrorMsg().c_str());
 		}
-		delete [] inputs;
 	}
 }
 

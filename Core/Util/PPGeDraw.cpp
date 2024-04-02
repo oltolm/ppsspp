@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <memory>
 
 #include "ext/xxhash.h"
 
@@ -258,10 +259,9 @@ void __PPGeInit() {
 	if (loadedZIM) {
 		size_t atlas_data_size;
 		if (!g_ppge_atlas.IsMetadataLoaded()) {
-			uint8_t *atlas_data = g_VFS.ReadFile("ppge_atlas.meta", &atlas_data_size);
+			auto atlas_data = std::unique_ptr<uint8_t[]>(g_VFS.ReadFile("ppge_atlas.meta", &atlas_data_size));
 			if (atlas_data)
-				g_ppge_atlas.Load(atlas_data, atlas_data_size);
-			delete[] atlas_data;
+				g_ppge_atlas.Load(atlas_data.get(), atlas_data_size);
 		}
 	}
 

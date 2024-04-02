@@ -1,6 +1,7 @@
 #include "ppsspp_config.h"
 
 #include <cstring>
+#include <memory>
 #include <set>
 
 #include "Common/StringUtils.h"
@@ -586,9 +587,9 @@ bool CheckGLExtensions() {
 	// Check the old query API. It doesn't seem to be very reliable (can miss stuff).
 	GLint numCompressedFormats = 0;
 	glGetIntegerv(GL_NUM_COMPRESSED_TEXTURE_FORMATS, &numCompressedFormats);
-	GLint *compressedFormats = new GLint[numCompressedFormats];
+	auto compressedFormats = std::make_unique<GLint[]>(numCompressedFormats);
 	if (numCompressedFormats > 0) {
-		glGetIntegerv(GL_COMPRESSED_TEXTURE_FORMATS, compressedFormats);
+		glGetIntegerv(GL_COMPRESSED_TEXTURE_FORMATS, compressedFormats.get());
 		for (int i = 0; i < numCompressedFormats; i++) {
 			switch (compressedFormats[i]) {
 			case GL_COMPRESSED_RGB8_ETC2: gl_extensions.supportsETC2 = true; break;
@@ -615,7 +616,6 @@ bool CheckGLExtensions() {
 		gl_extensions.supportsETC2 = false;
 		gl_extensions.supportsASTC = false;
 	}
-	delete[] compressedFormats;
 
 	ProcessGPUFeatures();
 

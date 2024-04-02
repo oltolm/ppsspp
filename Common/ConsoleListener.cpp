@@ -18,6 +18,7 @@
 #include <atomic>
 #include <algorithm>  // min
 #include <cstring>
+#include <memory>
 #include <string> // System: To be able to add strings with "+"
 #include <math.h>
 #ifdef _WIN32
@@ -315,7 +316,7 @@ unsigned int WINAPI ConsoleListener::RunThread(void *lpParam)
 
 void ConsoleListener::LogWriterThread()
 {
-	char *logLocal = new char[LOG_PENDING_MAX];
+	auto logLocal = std::make_unique<char[]>(LOG_PENDING_MAX);
 	int logLocalSize = 0;
 
 	while (true)
@@ -337,14 +338,14 @@ void ConsoleListener::LogWriterThread()
 			if (logRemotePos < logPendingReadPos)
 			{
 				const int count = LOG_PENDING_MAX - logPendingReadPos;
-				memcpy(logLocal + start, logPending + logPendingReadPos, count);
+				memcpy(logLocal.get() + start, logPending + logPendingReadPos, count);
 
 				start = count;
 				logPendingReadPos = 0;
 			}
 
 			const int count = logRemotePos - logPendingReadPos;
-			memcpy(logLocal + start, logPending + logPendingReadPos, count);
+			memcpy(logLocal.get() + start, logPending + logPendingReadPos, count);
 
 			logPendingReadPos += count;
 			LeaveCriticalSection(&criticalSection);
@@ -356,7 +357,7 @@ void ConsoleListener::LogWriterThread()
 			logLocalSize = start + count;
 		}
 
-		for (char *Text = logLocal, *End = logLocal + logLocalSize; Text < End; )
+		for (char *Text = logLocal.get(), *End = logLocal.get() + logLocalSize; Text < End; )
 		{
 			LogLevel Level = LogLevel::LINFO;
 
@@ -380,8 +381,6 @@ void ConsoleListener::LogWriterThread()
 			Text += Len;
 		}
 	}
-
-	delete [] logLocal;
 }
 
 void ConsoleListener::SendToThread(LogLevel Level, const char *Text)

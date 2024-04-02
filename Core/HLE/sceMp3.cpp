@@ -68,6 +68,7 @@
 
 #include <map>
 #include <algorithm>
+#include <memory>
 
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
@@ -270,7 +271,7 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 		return hleLogError(ME, SCE_KERNEL_ERROR_INVALID_POINTER, "bad mp3 pointer");
 	}
 
-	AuCtx *Au = new AuCtx;
+	auto Au = std::make_unique<AuCtx>();
 	if (mp3Addr) {
 		Au->startPos = Memory::Read_U64(mp3Addr); // Audio stream start position.
 		Au->endPos = Memory::Read_U64(mp3Addr + 8); // Audio stream end position.
@@ -280,15 +281,12 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 		Au->PCMBufSize = Memory::Read_U32(mp3Addr + 28); // Output PCM data buffer size.
 
 		if (Au->startPos >= Au->endPos) {
-			delete Au;
 			return hleLogError(ME, ERROR_MP3_BAD_SIZE, "start must be before end");
 		}
 		if (!Au->AuBuf || !Au->PCMBuf) {
-			delete Au;
 			return hleLogError(ME, ERROR_MP3_BAD_ADDR, "invalid buffer addresses");
 		}
 		if ((int)Au->AuBufSize < AU_BUF_MIN_SIZE || (int)Au->PCMBufSize < PCM_BUF_MIN_SIZE) {
-			delete Au;
 			return hleLogError(ME, ERROR_MP3_BAD_SIZE, "buffers too small");
 		}
 
@@ -307,7 +305,7 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	Au->decoder = CreateAudioDecoder(PSP_CODEC_MP3);
 
 	int handle = (int)mp3Map.size();
-	mp3Map[handle] = Au;
+	mp3Map[handle] = Au.release();
 
 	return hleLogSuccessI(ME, handle);
 }

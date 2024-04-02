@@ -35,6 +35,7 @@
 
 #include <map>
 #include <algorithm>
+#include <memory>
 
 // "Go Sudoku" is a good way to test this code...
 const int PSMF_AVC_STREAM = 0;
@@ -761,18 +762,15 @@ static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
 	}
 
-	Psmf *psmf = new Psmf(Memory::GetPointer(psmfData), psmfData);
+	auto psmf = std::make_unique<Psmf>(Memory::GetPointer(psmfData), psmfData);
 	if (psmf->magic != PSMF_MAGIC) {
-		delete psmf;
 		return hleLogError(ME, ERROR_PSMF_INVALID_PSMF, "invalid psmf data");
 	}
 	// Note: devkit 00000000 supports only '0012'(0F), '0013'(1F), and '0014'(2F).  03000310+ supports '0015'(3F.)
 	if (psmf->version == 0) {
-		delete psmf;
 		return hleLogError(ME, ERROR_PSMF_BAD_VERSION, "invalid psmf version");
 	}
 	if (psmf->streamOffset == 0) {
-		delete psmf;
 		return hleLogError(ME, ERROR_PSMF_INVALID_VALUE, "invalid psmf version");
 	}
 
@@ -792,7 +790,7 @@ static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
 	auto iter = psmfMap.find(data->headerOffset);
 	if (iter != psmfMap.end())
 		delete iter->second;
-	psmfMap[data->headerOffset] = psmf;
+	psmfMap[data->headerOffset] = psmf.release();
 
 	return hleLogSuccessI(ME, 0);
 }

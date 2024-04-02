@@ -1,5 +1,6 @@
 #include "ppsspp_config.h"
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <sstream>
 #include <unordered_map>
@@ -134,11 +135,10 @@ namespace MainWindow {
 		MENUITEMINFO menuInfo{ sizeof(menuInfo), MIIM_STRING };
 		std::string retVal;
 		if (GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo) != FALSE) {
-			wchar_t *buffer = new wchar_t[++menuInfo.cch];
-			menuInfo.dwTypeData = buffer;
+			auto buffer = std::make_unique<wchar_t[]>(++menuInfo.cch);
+			menuInfo.dwTypeData = buffer.get();
 			GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
 			retVal = ConvertWStringToUTF8(menuInfo.dwTypeData);
-			delete[] buffer;
 		}
 
 		return retVal;

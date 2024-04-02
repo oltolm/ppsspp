@@ -17,7 +17,9 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <snappy-c.h>
+#include <utility>
 #include <zstd.h>
 
 #include "Common/Serialize/Serializer.h"
@@ -410,13 +412,12 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 }
 
 // Takes ownership of buffer.
-CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz) {
+CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const std::string &title, const char *gitVersion, std::unique_ptr<u8> buffer, size_t sz) {
 	INFO_LOG(SAVESTATE, "ChunkReader: Writing %s", filename.c_str());
 
 	File::IOFile pFile(filename, "wb");
 	if (!pFile) {
 		ERROR_LOG(SAVESTATE, "ChunkReader: Error opening file for write");
-		free(buffer);
 		return ERROR_BAD_FILE;
 	}
 
@@ -434,8 +435,8 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 		write_len = ZSTD_compressBound(sz);
 		break;
 	}
-	u8 *compressed_buffer = write_len == 0 ? nullptr : (u8 *)malloc(write_len);
-	u8 *write_buffer = buffer;
+	auto compressed_buffer = write_len == 0 ? nullptr : std::make_unique<u8>(write_len);
+	std::unique_ptr<u8> write_buffer;
 	if (!compressed_buffer) {
 		if (write_len != 0)
 			ERROR_LOG(SAVESTATE, "ChunkReader: Unable to allocate compressed buffer");
@@ -449,7 +450,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 			_assert_(false);
 			break;
 		case SerializeCompressType::SNAPPY:
-			success = snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &write_len) == SNAPPY_OK;
+			success = snappy_compress((const char *)buffer.get(), sz, (char *)compressed_buffer.get(), &write_len) == SNAPPY_OK;
 			break;
 		case SerializeCompressType::ZSTD:
 			{
@@ -461,7 +462,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 					ZSTD_CCtx_setParameter(ctx, ZSTD_c_compressionLevel, ZSTD_CLEVEL_DEFAULT);
 					ZSTD_CCtx_setParameter(ctx, ZSTD_c_checksumFlag, 1);
 					ZSTD_CCtx_setPledgedSrcSize(ctx, sz);
-					write_len = ZSTD_compress2(ctx, compressed_buffer, write_len, buffer, sz);
+					write_len = ZSTD_compress2(ctx, compressed_buffer.get(), write_len, buffer.get(), sz);
 					success = !ZSTD_isError(write_len);
 				}
 				ZSTD_freeCCtx(ctx);
@@ -470,11 +471,10 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 		}
 
 		if (success) {
-			free(buffer);
-			write_buffer = compressed_buffer;
+			write_buffer = std::move(compressed_buffer);
 		} else {
+			write_buffer = std::move(buffer);
 			ERROR_LOG(SAVESTATE, "ChunkReader: Compression failed");
-			free(compressed_buffer);
 
 			// We can still save uncompressed.
 			write_len = sz;
@@ -497,23 +497,19 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 	// Now let's start writing out the file...
 	if (!pFile.WriteArray(&header, 1)) {
 		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing header");
-		free(write_buffer);
 		return ERROR_BAD_FILE;
 	}
 	if (!pFile.WriteArray(titleFixed, sizeof(titleFixed))) {
 		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing title");
-		free(write_buffer);
 		return ERROR_BAD_FILE;
 	}
 
-	if (!pFile.WriteBytes(write_buffer, write_len)) {
+	if (!pFile.WriteBytes(write_buffer.get(), write_len)) {
 		ERROR_LOG(SAVESTATE, "ChunkReader: Failed writing compressed data");
-		free(write_buffer);
 		return ERROR_BAD_FILE;
 	} else if (sz != write_len) {
 		INFO_LOG(SAVESTATE, "Savestate: Compressed %i bytes into %i", (int)sz, (int)write_len);
 	}
-	free(write_buffer);
 
 	INFO_LOG(SAVESTATE, "ChunkReader: Done writing %s", filename.c_str());
 	return ERROR_NONE;

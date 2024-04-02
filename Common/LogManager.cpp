@@ -136,32 +136,32 @@ LogManager::LogManager(bool *enabledSetting) {
 		debuggerLog_ = new OutputDebugStringLogListener();
 #else
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-	fileLog_ = new FileLogListener("");
-	consoleLog_ = new ConsoleListener();
+	fileLog_.reset(new FileLogListener(""));
+	consoleLog_.reset(new ConsoleListener());
 #ifdef _WIN32
 	if (IsDebuggerPresent())
-		debuggerLog_ = new OutputDebugStringLogListener();
+		debuggerLog_.reset(new OutputDebugStringLogListener());
 #endif
 #endif
-	ringLog_ = new RingbufferLogListener();
+	ringLog_.reset(new RingbufferLogListener());
 #endif
 
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-	AddListener(fileLog_);
-	AddListener(consoleLog_);
+	AddListener(fileLog_.get());
+	AddListener(consoleLog_.get());
 #if defined(_MSC_VER) && (defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP))
 	if (IsDebuggerPresent() && debuggerLog_ && LOG_MSC_OUTPUTDEBUG)
 		AddListener(debuggerLog_);
 #endif
-	AddListener(ringLog_);
+	AddListener(ringLog_.get());
 #endif
 }
 
 LogManager::~LogManager() {
 	for (int i = 0; i < (int)LogType::NUMBER_OF_LOGS; ++i) {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-		RemoveListener(fileLog_);
-		RemoveListener(consoleLog_);
+		RemoveListener(fileLog_.get());
+		RemoveListener(consoleLog_.get());
 #if defined(_MSC_VER) && defined(USING_WIN_UI)
 		RemoveListener(debuggerLog_);
 #endif
@@ -170,26 +170,17 @@ LogManager::~LogManager() {
 
 	// Make sure we don't shutdown while logging.  RemoveListener locks too, but there are gaps.
 	std::lock_guard<std::mutex> listeners_lock(listeners_lock_);
-
-	if (fileLog_)
-		delete fileLog_;
-#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-	delete consoleLog_;
-	delete debuggerLog_;
-#endif
-	delete ringLog_;
 }
 
 void LogManager::ChangeFileLog(const char *filename) {
 	if (fileLog_) {
-		RemoveListener(fileLog_);
-		delete fileLog_;
+		RemoveListener(fileLog_.get());
 		fileLog_ = nullptr;
 	}
 
 	if (filename) {
-		fileLog_ = new FileLogListener(filename);
-		AddListener(fileLog_);
+		fileLog_.reset(new FileLogListener(filename));
+		AddListener(fileLog_.get());
 	}
 }
 
