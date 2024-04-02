@@ -14,6 +14,8 @@
 
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+#include <memory>
+#include <utility>
 
 #include "Common/File/AndroidContentURI.h"
 #include "Common/File/FileUtil.h"
@@ -33,16 +35,16 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 
-FileLoader *ConstructFileLoader(const Path &filename) {
+std::unique_ptr<FileLoader> ConstructFileLoader(const Path &filename) {
 	if (filename.Type() == PathType::HTTP) {
-		FileLoader *baseLoader = new RetryingFileLoader(new HTTPFileLoader(filename));
+		std::unique_ptr<FileLoader> baseLoader = std::make_unique<RetryingFileLoader>(std::make_unique<HTTPFileLoader>(filename));
 		// For headless, avoid disk caching since it's usually used for tests that might mutate.
 		if (!PSP_CoreParameter().headLess) {
-			baseLoader = new DiskCachingFileLoader(baseLoader);
+			baseLoader = std::make_unique<DiskCachingFileLoader>(std::move(baseLoader));
 		}
-		return new CachingFileLoader(baseLoader);
+		return std::make_unique<CachingFileLoader>(std::move(baseLoader));
 	}
-	return new LocalFileLoader(filename);
+	return std::make_unique<LocalFileLoader>(filename);
 }
 
 // TODO : improve, look in the file more
@@ -219,14 +221,13 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	return IdentifiedFileType::UNKNOWN;
 }
 
-FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
+std::unique_ptr<FileLoader> ResolveFileLoaderTarget(std::unique_ptr<FileLoader> fileLoader) {
 	std::string errorString;
-	IdentifiedFileType type = Identify_File(fileLoader, &errorString);
+	IdentifiedFileType type = Identify_File(fileLoader.get(), &errorString);
 	if (type == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 		const Path ebootFilename = ResolvePBPFile(fileLoader->GetPath());
 		if (ebootFilename != fileLoader->GetPath()) {
 			// Switch fileLoader to the actual EBOOT.
-			delete fileLoader;
 			fileLoader = ConstructFileLoader(ebootFilename);
 		}
 	}
@@ -249,20 +250,20 @@ Path ResolvePBPFile(const Path &filename) {
 	}
 }
 
-bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
-	FileLoader *&fileLoader = *fileLoaderPtr;
-	IdentifiedFileType type = Identify_File(fileLoader, error_string);
+bool LoadFile(std::unique_ptr<FileLoader> *fileLoaderPtr, std::string *error_string) {
+	std::unique_ptr<FileLoader> &fileLoader = *fileLoaderPtr;
+	IdentifiedFileType type = Identify_File(fileLoader.get(), error_string);
 	switch (type) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		{
-			fileLoader = ResolveFileLoaderTarget(fileLoader);
+			fileLoader = ResolveFileLoaderTarget(std::move(fileLoader));
 			if (fileLoader->Exists()) {
 				INFO_LOG(Log::Loader, "File is a PBP in a directory: %s", fileLoader->GetPath().c_str());
-				IdentifiedFileType ebootType = Identify_File(fileLoader, error_string);
+				IdentifiedFileType ebootType = Identify_File(fileLoader.get(), error_string);
 				if (ebootType == IdentifiedFileType::PSP_ISO_NP) {
-					InitMemoryForGameISO(fileLoader);
+					InitMemoryForGameISO(fileLoader.get());
 					pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
-					return Load_PSP_ISO(fileLoader, error_string);
+					return Load_PSP_ISO(fileLoader.get(), error_string);
 				}
 				else if (ebootType == IdentifiedFileType::PSP_PS1_PBP) {
 					*error_string = "PS1 EBOOTs are not supported by PPSSPP.";
@@ -283,7 +284,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 					dir = ResolvePBPDirectory(Path(dir)).ToString();
 					pspFileSystem.SetStartingDirectory("ms0:/" + dir.substr(pos));
 				}
-				return Load_PSP_ELF_PBP(fileLoader, error_string);
+				return Load_PSP_ELF_PBP(fileLoader.get(), error_string);
 			} else {
 				*error_string = "No EBOOT.PBP, misidentified game";
 				coreState = CORE_BOOT_ERROR;
@@ -296,14 +297,14 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	case IdentifiedFileType::PSP_ELF:
 		{
 			INFO_LOG(Log::Loader, "File is an ELF or loose PBP! %s", fileLoader->GetPath().c_str());
-			return Load_PSP_ELF_PBP(fileLoader, error_string);
+			return Load_PSP_ELF_PBP(fileLoader.get(), error_string);
 		}
 
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:	// behaves the same as the mounting is already done by now
 		pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
-		return Load_PSP_ISO(fileLoader, error_string);
+		return Load_PSP_ISO(fileLoader.get(), error_string);
 
 	case IdentifiedFileType::PSP_PS1_PBP:
 		*error_string = "PS1 EBOOTs are not supported by PPSSPP.";
@@ -351,7 +352,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 		break;
 
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
-		return Load_PSP_GE_Dump(fileLoader, error_string);
+		return Load_PSP_GE_Dump(fileLoader.get(), error_string);
 
 	case IdentifiedFileType::UNKNOWN_BIN:
 	case IdentifiedFileType::UNKNOWN_ELF:
@@ -384,27 +385,26 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 		return false;
 	}
 
-	FileLoader *loadedFile = ConstructFileLoader(filepath);
+	std::unique_ptr<FileLoader> loadedFile = ConstructFileLoader(filepath);
 
 	if (!loadedFile->Exists()) {
 		error = loadedFile->GetPath().ToVisualString() + " doesn't exist";
-		delete loadedFile;
 		return false;
 	}
-	UpdateLoadedFile(loadedFile);
+	UpdateLoadedFile(std::move(loadedFile));
+	// FIXME
+	loadedFile = ResolveFileLoaderTarget(std::move(loadedFile));
 
-	loadedFile = ResolveFileLoaderTarget(loadedFile);
-
-	*fileLoader = loadedFile;
+	*fileLoader = loadedFile.get();
 
 	std::string errorString;
-	IdentifiedFileType type = Identify_File(loadedFile, &errorString);
+	IdentifiedFileType type = Identify_File(loadedFile.get(), &errorString);
 
 	switch (type) {
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-		if (!ReInitMemoryForGameISO(loadedFile)) {
+		if (!ReInitMemoryForGameISO(loadedFile.get())) {
 			error = "reinit memory failed";
 			return false;
 		}

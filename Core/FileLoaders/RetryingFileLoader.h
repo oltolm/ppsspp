@@ -19,10 +19,11 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
+#include <memory>
 
 class RetryingFileLoader : public ProxiedFileLoader {
 public:
-	RetryingFileLoader(FileLoader *backend);
+	RetryingFileLoader(std::unique_ptr<FileLoader> backend);
 
 	bool Exists() override;
 	bool ExistsFast() override;

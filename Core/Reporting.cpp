@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <deque>
+#include <memory>
 #include <thread>
 #include <mutex>
 #include <atomic>
@@ -134,7 +135,7 @@ namespace Reporting
 
 		AndroidJNIThreadContext jniContext;
 
-		std::shared_ptr<FileLoader> fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
+		std::unique_ptr<FileLoader> fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
 		std::unique_ptr<BlockDevice> blockDevice(constructBlockDevice(fileLoader.get()));
 
 		u32 crc = 0;
