@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <sstream>
@@ -1604,9 +1605,8 @@ void Config::CleanRecent() {
 				}
 				break;
 			default:
-				FileLoader *loader = ConstructFileLoader(path);
+				std::unique_ptr<FileLoader> loader = ConstructFileLoader(path);
 				exists = loader->ExistsFast();
-				delete loader;
 				break;
 			}
 

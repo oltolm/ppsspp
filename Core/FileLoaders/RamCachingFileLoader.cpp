@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <memory>
 #include <thread>
 #include <cstring>
 #include <cstdlib>
@@ -27,8 +28,8 @@
 #include "Common/Log.h"
 
 // Takes ownership of backend.
-RamCachingFileLoader::RamCachingFileLoader(FileLoader *backend)
-	: ProxiedFileLoader(backend) {
+RamCachingFileLoader::RamCachingFileLoader(std::unique_ptr<FileLoader> backend)
+	: ProxiedFileLoader(std::move(backend)) {
 	filesize_ = backend->FileSize();
 	if (filesize_ > 0) {
 		InitCache();

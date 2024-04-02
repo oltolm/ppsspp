@@ -81,8 +81,7 @@ bool LaunchFile(ScreenManager *screenManager, const Path &path) {
 	}
 
 	std::string errorString;
-	IdentifiedFileType type = Identify_File(loader, &errorString);
-	delete loader;
+	IdentifiedFileType type = Identify_File(loader.get(), &errorString);
 
 	switch (type) {
 	case IdentifiedFileType::ARCHIVE_ZIP:
