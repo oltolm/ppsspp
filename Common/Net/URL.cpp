@@ -1,5 +1,6 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include <memory>
 #include "Common/Net/URL.h"
 
 int MultipartFormDataEncoder::seq = 0;
@@ -152,8 +153,8 @@ std::string UriDecode(std::string_view sSrc)
 	const unsigned char * const SRC_END = pSrc + SRC_LEN;
 	const unsigned char * const SRC_LAST_DEC = SRC_END - 2;   // last decodable '%' 
 
-	char * const pStart = new char[SRC_LEN];  // Output will be shorter.
-	char * pEnd = pStart;
+	auto pStart = std::make_unique<char[]>(SRC_LEN);  // Output will be shorter.
+	char * pEnd = pStart.get();
 
 	while (pSrc < SRC_LAST_DEC) {
 		if (*pSrc == '%') {
@@ -172,8 +173,7 @@ std::string UriDecode(std::string_view sSrc)
 	while (pSrc < SRC_END)
 		*pEnd++ = *pSrc++;
 
-	std::string sResult(pStart, pEnd);
-	delete [] pStart;
+	std::string sResult(pStart.get(), pEnd);
 	return sResult;
 }
 
@@ -205,8 +205,8 @@ std::string UriEncode(std::string_view sSrc) {
 	const char DEC2HEX[16 + 1] = "0123456789ABCDEF";
 	const unsigned char * pSrc = (const unsigned char *)sSrc.data();
 	const size_t SRC_LEN = sSrc.length();
-	unsigned char * const pStart = new unsigned char[SRC_LEN * 3];
-	unsigned char * pEnd = pStart;
+	auto pStart = std::make_unique<unsigned char[]>(SRC_LEN * 3);
+	unsigned char * pEnd = pStart.get();
 	const unsigned char * const SRC_END = pSrc + SRC_LEN;
 
 	for (; pSrc < SRC_END; ++pSrc) {
@@ -220,7 +220,6 @@ std::string UriEncode(std::string_view sSrc) {
 		}
 	}
 
-	std::string sResult((char *)pStart, (char *)pEnd);
-	delete [] pStart;
+	std::string sResult((char *)pStart.get(), (char *)pEnd);
 	return sResult;
 }

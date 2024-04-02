@@ -1,6 +1,8 @@
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+#include <memory>
 #include <zstd.h>
 
 #include "zlib.h"
@@ -151,8 +153,8 @@ void Convert(const uint8_t *image_data, int width, int height, int pitch, int fl
 }
 
 // Deletes the old buffer.
-uint8_t *DownsampleBy2(const uint8_t *image, int width, int height, int pitch) {
-	uint8_t *out = new uint8_t[(width/2) * (height/2) * 4];
+std::unique_ptr<uint8_t[]> DownsampleBy2(std::unique_ptr<uint8_t[]> image, int width, int height, int pitch) {
+	auto out = std::make_unique<uint8_t[]>((width/2) * (height/2) * 4);
 
 	int degamma[256];
 	int gamma[32768];
@@ -166,11 +168,11 @@ uint8_t *DownsampleBy2(const uint8_t *image, int width, int height, int pitch) {
 	// Really stupid mipmap downsampling - at least it does gamma though.
 	for (int y = 0; y < height; y+=2) {
 		for (int x = 0; x < width; x+=2) {
-			const uint8_t *tl = image + pitch * y + x*4;
+			const uint8_t *tl = image.get() + pitch * y + x*4;
 			const uint8_t *tr = tl + 4;
 			const uint8_t *bl = tl + pitch;
 			const uint8_t *br = bl + 4;
-			uint8_t *d = out + ((y/2) * ((width/2)) + x / 2) * 4;
+			uint8_t *d = out.get() + ((y/2) * ((width/2)) + x / 2) * 4;
 			for (int c = 0; c < 4; c++) {
 				d[c] = gamma[degamma[tl[c]] + degamma[tr[c]] + degamma[bl[c]] + degamma[br[c]]];
 			}
@@ -179,7 +181,7 @@ uint8_t *DownsampleBy2(const uint8_t *image, int width, int height, int pitch) {
 	return out;
 }
 
-void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t *image_data, int compressLevel) {
+void SaveZIM(FILE *f, int width, int height, int pitch, int flags, std::unique_ptr<uint8_t[]> image_data, int compressLevel) {
 	fwrite(magic, 1, 4, f);
 	fwrite(&width, 1, 4, f);
 	fwrite(&height, 1, 4, f);
@@ -190,43 +192,36 @@ void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t
 		num_levels = log2i(width > height ? height : width) + 1;
 	}
 	for (int i = 0; i < num_levels; i++) {
-		uint8_t *data = 0;
+		uint8_t *data = nullptr;
 		int data_size;
-		Convert(image_data, width, height, pitch, flags, &data, &data_size);
+		Convert(image_data.get(), width, height, pitch, flags, &data, &data_size);
+		auto data_ptr = std::unique_ptr<uint8_t[]>(data);
 		if (flags & ZIM_ZLIB_COMPRESSED) {
 			long dest_len = data_size * 2;
-			uint8_t *dest = new uint8_t[dest_len];
-			if (Z_OK == ezcompress(dest, &dest_len, data, data_size, compressLevel == 0 ? Z_DEFAULT_COMPRESSION : compressLevel)) {
-				fwrite(dest, 1, dest_len, f);
+			auto dest =  std::make_unique<uint8_t[]>(dest_len);
+			if (Z_OK == ezcompress(dest.get(), &dest_len, data, data_size, compressLevel == 0 ? Z_DEFAULT_COMPRESSION : compressLevel)) {
+				fwrite(dest.get(), 1, dest_len, f);
 			} else {
 				ERROR_LOG(Log::IO, "Zlib compression failed.\n");
 			}
-			delete [] dest;
 		} else if (flags & ZIM_ZSTD_COMPRESSED) {
 			size_t dest_len = ZSTD_compressBound(data_size);
-			uint8_t *dest = new uint8_t[dest_len];
-			dest_len = ZSTD_compress(dest, dest_len, data, data_size, compressLevel == 0 ? 22 : compressLevel);
+			auto dest = std::make_unique<uint8_t[]>(dest_len);
+			dest_len = ZSTD_compress(dest.get(), dest_len, data, data_size, compressLevel == 0 ? 22 : compressLevel);
 			if (!ZSTD_isError(dest_len)) {
-				fwrite(dest, 1, dest_len, f);
+				fwrite(dest.get(), 1, dest_len, f);
 			} else {
 				ERROR_LOG(Log::IO, "Zlib compression failed.\n");
 			}
-			delete [] dest;
 		} else {
 			fwrite(data, 1, data_size, f);
 		}
-		delete [] data;
 
 		if (i != num_levels - 1) {
-			uint8_t *smaller = DownsampleBy2(image_data, width, height, pitch);
-			if (i != 0) {
-				delete [] image_data;
-			}
-			image_data = smaller;
+			image_data = std::move(DownsampleBy2(std::move(image_data), width, height, pitch));
 			width /= 2;
 			height /= 2;
 			pitch = width * 4;
 		}
 	}
-	delete [] image_data;
 }

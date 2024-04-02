@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <map>
+#include <memory>
 #include <thread>
 
 #include "Common/Net/HTTPHeaders.h"
@@ -31,7 +32,7 @@ public:
 	~ServerRequest();
 
 	const char *resource() const {
-		return header_.resource;
+		return header_.resource.get();
 	}
 
 	RequestHeader::Method Method() const {
@@ -46,8 +47,8 @@ public:
 		return header_.GetOther(name, value);
 	}
 
-	net::InputSink *In() const { return in_; }
-	net::OutputSink *Out() const { return out_; }
+	net::InputSink *In() const { return in_.get(); }
+	net::OutputSink *Out() const { return out_.get(); }
 
 	// TODO: Remove, in favor of PartialWrite and friends.
 	int fd() const { return fd_; }
@@ -62,8 +63,8 @@ public:
 	void WriteHttpResponseHeader(const char *ver, int status, int64_t size = -1, const char *mimeType = nullptr, const char *otherHeaders = nullptr) const;
 
 private:
-	net::InputSink *in_;
-	net::OutputSink *out_;
+	std::unique_ptr<net::InputSink> in_;
+	std::unique_ptr<net::OutputSink> out_;
 	RequestHeader header_;
 	int fd_;
 };
@@ -72,7 +73,7 @@ private:
 class Server {
 public:
 	// Takes ownership.
-	Server(NewThreadExecutor *executor);
+	Server(std::unique_ptr<NewThreadExecutor> executor);
 	virtual ~Server();
 
 	typedef std::function<void(const ServerRequest &)> UrlHandlerFunc;
@@ -119,7 +120,7 @@ private:
 	UrlHandlerMap handlers_;
 	UrlHandlerFunc fallback_;
 
-	NewThreadExecutor *executor_;
+	std::unique_ptr<NewThreadExecutor> executor_;
 };
 
 }  // namespace http

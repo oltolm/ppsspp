@@ -16,6 +16,7 @@
 // http://code.google.com/p/dolphin-emu/
 
 #include "ppsspp_config.h"
+#include <memory>
 
 #if PPSSPP_PLATFORM(ANDROID)
 
@@ -167,7 +168,7 @@ void LogManager::Shutdown() {
 LogManager::LogManager() {
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(SWITCH)
 	stdioUseColor_ = false;
-#elif defined(_MSC_VER)
+#elif defined(_WIN32)
 	stdioUseColor_ = false;
 #elif defined(__APPLE__)
 	// Xcode builtin terminal used for debugging does not support colours.
@@ -183,7 +184,7 @@ LogManager::LogManager() {
 	}
 
 	if (!consoleLog_) {
-		consoleLog_ = new ConsoleListener();
+		consoleLog_ = std::make_unique<ConsoleListener>();
 	}
 	outputs_ |= LogOutput::WinConsole;
 #endif
@@ -191,11 +192,6 @@ LogManager::LogManager() {
 
 LogManager::~LogManager() {
 	Shutdown();
-
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	delete consoleLog_;
-	consoleLog_ = nullptr;
-#endif
 }
 
 void LogManager::ChangeFileLog(const Path &filename) {

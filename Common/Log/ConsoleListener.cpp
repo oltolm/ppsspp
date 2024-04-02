@@ -22,6 +22,7 @@
 #include <algorithm>  // min
 #include <array>
 #include <cstring>
+#include <memory>
 #include <string> // System: To be able to add strings with "+"
 #include <math.h>
 #include <process.h>
@@ -235,7 +236,7 @@ COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth) {
 }
 
 void ConsoleListener::LogWriterThread() {
-	char *logLocal = new char[LOG_PENDING_MAX];
+	auto logLocal = std::make_unique<char[]>(LOG_PENDING_MAX);
 	int logLocalSize = 0;
 
 	while (true) {
@@ -254,14 +255,14 @@ void ConsoleListener::LogWriterThread() {
 			int start = 0;
 			if (logRemotePos < logPendingReadPos_) {
 				const int count = LOG_PENDING_MAX - logPendingReadPos_;
-				memcpy(logLocal + start, logPending_ + logPendingReadPos_, count);
+				memcpy(logLocal.get() + start, logPending_ + logPendingReadPos_, count);
 
 				start = count;
 				logPendingReadPos_ = 0;
 			}
 
 			const int count = logRemotePos - logPendingReadPos_;
-			memcpy(logLocal + start, logPending_ + logPendingReadPos_, count);
+			memcpy(logLocal.get() + start, logPending_ + logPendingReadPos_, count);
 
 			logPendingReadPos_ += count;
 			LeaveCriticalSection(&criticalSection);
@@ -274,7 +275,7 @@ void ConsoleListener::LogWriterThread() {
 			logLocalSize = start + count;
 		}
 
-		for (char *Text = logLocal, *End = logLocal + logLocalSize; Text < End; ) {
+		for (char *Text = logLocal.get(), *End = logLocal.get() + logLocalSize; Text < End; ) {
 			LogLevel Level = LogLevel::LINFO;
 
 			char *next = (char *) memchr(Text + 1, '\033', End - Text);
@@ -298,8 +299,6 @@ void ConsoleListener::LogWriterThread() {
 			Text += Len;
 		}
 	}
-
-	delete [] logLocal;
 }
 
 void ConsoleListener::SendToThread(LogLevel Level, const char *Text) {
