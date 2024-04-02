@@ -562,20 +562,19 @@ std::string GameManager::GetGameID(const Path &path) const {
 	std::string id;
 
 	std::string errorString;
-	switch (Identify_File(loader, &errorString)) {
+	switch (Identify_File(loader.get(), &errorString)) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
-		delete loader;
 		loader = ConstructFileLoader(ResolvePBPFile(path));
-		id = GetPBPGameID(loader);
+		id = GetPBPGameID(loader.get());
 		break;
 
 	case IdentifiedFileType::PSP_PBP:
-		id = GetPBPGameID(loader);
+		id = GetPBPGameID(loader.get());
 		break;
 
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
-		id = GetISOGameID(loader);
+		id = GetISOGameID(loader.get());
 		break;
 
 	default:
@@ -583,7 +582,6 @@ std::string GameManager::GetGameID(const Path &path) const {
 		break;
 	}
 
-	delete loader;
 	return id;
 }
 

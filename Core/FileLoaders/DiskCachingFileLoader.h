@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <map>
 #include <mutex>
@@ -30,7 +31,7 @@ class DiskCachingFileLoaderCache;
 
 class DiskCachingFileLoader : public ProxiedFileLoader {
 public:
-	DiskCachingFileLoader(FileLoader *backend);
+	DiskCachingFileLoader(std::unique_ptr<FileLoader> backend);
 	~DiskCachingFileLoader();
 
 	bool Exists() override;
