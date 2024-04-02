@@ -1,3 +1,4 @@
+#include <memory>
 #include <vector>
 #include <cstdio>
 #include <cstdint>
@@ -1031,7 +1032,7 @@ static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) 
 }
 
 D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc &desc) : decl_(NULL) {
-	D3DVERTEXELEMENT9 *elements = new D3DVERTEXELEMENT9[desc.attributes.size() + 1];
+	auto elements = std::make_unique<D3DVERTEXELEMENT9[]>(desc.attributes.size() + 1);
 	size_t i;
 	for (i = 0; i < desc.attributes.size(); i++) {
 		elements[i].Stream = 0;
@@ -1046,11 +1047,10 @@ D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc
 
 	stride_ = desc.stride;
 
-	HRESULT hr = device->CreateVertexDeclaration(elements, &decl_);
+	HRESULT hr = device->CreateVertexDeclaration(elements.get(), &decl_);
 	if (FAILED(hr)) {
 		ERROR_LOG(Log::G3D,  "Error creating vertex decl");
 	}
-	delete[] elements;
 }
 
 // Simulate a simple buffer type like the other backends have, use the usage flags to create the right internal type.

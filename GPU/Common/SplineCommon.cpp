@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <memory>
 #include <string.h>
 #include <algorithm>
 
@@ -239,9 +240,9 @@ public:
 		Weight *weights = new Weight[tess * num_patches + 1];
 
 	//	float *knots = new float[num_patches + 5];
-		float *knots = new float[num_patches + 2]; // Optimized with KnotDiv, must use +5 in theory 
-		KnotDiv *divs = new KnotDiv[num_patches];
-		CalcKnots(num_patches, type, knots, divs);
+		auto knots = std::make_unique<float[]>(num_patches + 2); // Optimized with KnotDiv, must use +5 in theory 
+		auto divs = std::make_unique<KnotDiv[]>(num_patches);
+		CalcKnots(num_patches, type, knots.get(), divs.get());
 
 		const float inv_tess = 1.0f / (float)tess;
 		for (int i = 0; i < num_patches; ++i) {
@@ -249,12 +250,9 @@ public:
 			for (int j = start; j <= tess; ++j) {
 				const int index = i * tess + j;
 				const float t = (float)index * inv_tess;
-				CalcWeights(t, knots + i, divs[i], weights[index]);
+				CalcWeights(t, knots.get() + i, divs[i], weights[index]);
 			}
 		}
-
-		delete[] knots;
-		delete[] divs;
 
 		return weights;
 	}

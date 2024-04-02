@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <functional>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -827,14 +828,14 @@ void DoState(PointerWrap &p) {
 	Do(p, data_size);
 
 	if (data_size > 0) {
-		uint8_t *buffer = new uint8_t[data_size];
+		auto buffer = std::make_unique<uint8_t[]>(data_size);
 		switch (p.mode) {
 		case PointerWrap::MODE_NOOP:
 		case PointerWrap::MODE_MEASURE:
 		case PointerWrap::MODE_WRITE:
 		case PointerWrap::MODE_VERIFY:
 		{
-			int retval = rc_client_serialize_progress(g_rcClient, buffer);
+			int retval = rc_client_serialize_progress(g_rcClient, buffer.get());
 			if (retval != RC_OK) {
 				ERROR_LOG(Log::Achievements, "Error %d serializing achievement data. Ignoring.", retval);
 			}
@@ -844,12 +845,12 @@ void DoState(PointerWrap &p) {
 			break;
 		}
 
-		DoArray(p, buffer, data_size);
+		DoArray(p, buffer.get(), data_size);
 
 		switch (p.mode) {
 		case PointerWrap::MODE_READ:
 		{
-			int retval = rc_client_deserialize_progress(g_rcClient, buffer);
+			int retval = rc_client_deserialize_progress(g_rcClient, buffer.get());
 			if (retval != RC_OK) {
 				// TODO: What should we really do here?
 				ERROR_LOG(Log::Achievements, "Error %d deserializing achievement data. Ignoring.", retval);
@@ -859,7 +860,6 @@ void DoState(PointerWrap &p) {
 		default:
 			break;
 		}
-		delete[] buffer;
 	} else {
 		if (IsActive()) {
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
