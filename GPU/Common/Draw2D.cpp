@@ -25,6 +25,7 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include <memory>
 
 static const InputDef inputs[2] = {
 	{ "vec2", "a_position", Draw::SEM_POSITION },
@@ -207,18 +208,17 @@ void Draw2D::Ensure2DResources() {
 	const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
 
 	if (!draw2DVs_) {
-		char *vsCode = new char[8192];
+		auto vsCode = std::make_unique<char[]>(8192);
 		ShaderWriterFlags flags = ShaderWriterFlags::NONE;
 		if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
 			// Hm, we're compiling the vertex shader here, probably don't need this...
 			flags = ShaderWriterFlags::FS_AUTO_STEREO;
 		}
-		ShaderWriter writer(vsCode, shaderLanguageDesc, ShaderStage::Vertex);
+		ShaderWriter writer(vsCode.get(), shaderLanguageDesc, ShaderStage::Vertex);
 		GenerateDraw2DVS(writer);
-		_assert_msg_(strlen(vsCode) < 8192, "Draw2D VS length error: %d", (int)strlen(vsCode));
-		draw2DVs_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode, strlen(vsCode), "draw2d_vs");
+		_assert_msg_(strlen(vsCode.get()) < 8192, "Draw2D VS length error: %d", (int)strlen(vsCode.get()));
+		draw2DVs_ = draw_->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vsCode.get(), strlen(vsCode.get()), "draw2d_vs");
 		_assert_(draw2DVs_);
-		delete[] vsCode;
 	}
 
 	if (!draw2DSamplerLinear_) {

@@ -13,6 +13,7 @@
 #include <shlobj.h>
 #include <commdlg.h>
 #include <cderr.h>
+#include <memory>
 #include <wrl/client.h>
 
 namespace W32Util {
@@ -228,8 +229,8 @@ static HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lp
 
 bool CreateDesktopShortcut(std::string_view argumentPath, std::string_view gameTitleStr, const Path &icoFile) {
 	// Get the desktop folder
-	wchar_t *pathbuf = new wchar_t[4096];
-	SHGetFolderPath(0, CSIDL_DESKTOPDIRECTORY, NULL, SHGFP_TYPE_CURRENT, pathbuf);
+	auto pathbuf = std::make_unique<wchar_t[]>(4096);
+	SHGetFolderPath(0, CSIDL_DESKTOPDIRECTORY, NULL, SHGFP_TYPE_CURRENT, pathbuf.get());
 
 	std::string gameTitle(gameTitleStr);
 	// Sanitize the game title for banned characters.
@@ -243,9 +244,9 @@ bool CreateDesktopShortcut(std::string_view argumentPath, std::string_view gameT
 		}
 	}
 
-	wcscat(pathbuf, L"\\");
-	wcscat(pathbuf, ConvertUTF8ToWString(gameTitle).c_str());
-	wcscat(pathbuf, L".lnk");
+	wcscat(pathbuf.get(), L"\\");
+	wcscat(pathbuf.get(), ConvertUTF8ToWString(gameTitle).c_str());
+	wcscat(pathbuf.get(), L".lnk");
 
 	std::wstring moduleFilename;
 	size_t sz;
@@ -272,11 +273,10 @@ bool CreateDesktopShortcut(std::string_view argumentPath, std::string_view gameT
 		icon = icoFile.ToWString();
 	}
 
-	CreateLink(moduleFilename.c_str(), ConvertUTF8ToWString(sanitizedArgument).c_str(), pathbuf, ConvertUTF8ToWString(gameTitle).c_str(), icon.empty() ? nullptr : icon.c_str(), 0);
+	CreateLink(moduleFilename.c_str(), ConvertUTF8ToWString(sanitizedArgument).c_str(), pathbuf.get(), ConvertUTF8ToWString(gameTitle).c_str(), icon.empty() ? nullptr : icon.c_str(), 0);
 
 	// TODO: Also extract the game icon and convert to .ico, put it somewhere under Memstick, and set it.
 
-	delete[] pathbuf;
 	return false;
 }
 

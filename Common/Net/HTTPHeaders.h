@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -19,10 +20,10 @@ public:
 	// to bother with accessors for all these.
 	int status = 100;
 
-	char *referer = nullptr;  // Intentional misspelling.
-	char *user_agent = nullptr;
-	char *resource = nullptr;
-	char *params = nullptr;
+	std::unique_ptr<char[]> referer;  // Intentional misspelling.
+	std::unique_ptr<char[]> user_agent;
+	std::unique_ptr<char[]> resource;
+	std::unique_ptr<char[]> params;
 
 	int content_length = -1;
 	std::unordered_map<std::string, std::string> other;

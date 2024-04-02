@@ -1,4 +1,5 @@
 #include <cctype>
+#include <memory>
 #include <tchar.h>
 #include <cmath>
 #include <iomanip>
@@ -523,8 +524,8 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			{
 				auto memLock = Memory::Lock();
 				size_t tempSize = 3 * selectedSize + 1;
-				char *temp = new char[tempSize];
-				memset(temp, 0, tempSize);
+				auto temp = std::make_unique<char[]>(tempSize);
+				memset(temp.get(), 0, tempSize);
 
 				// it's admittedly not really useful like this
 				if (asciiSelected_) {
@@ -535,17 +536,16 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 						temp[p - selectRangeStart_] = c;
 					}
 				} else {
-					char *pos = temp;
+					char *pos = temp.get();
 					for (uint32_t p = selectRangeStart_; p != selectRangeEnd_; ++p) {
 						uint8_t c = Memory::IsValidAddress(p) ? Memory::ReadUnchecked_U8(p) : 0xFF;
-						pos += snprintf(pos, tempSize - (pos - temp + 1), "%02X ", c);
+						pos += snprintf(pos, tempSize - (pos - temp.get() + 1), "%02X ", c);
 					}
 					// Clear the last space.
-					if (pos > temp)
+					if (pos > temp.get())
 						*(pos - 1) = '\0';
 				}
-				W32Util::CopyTextToClipboard(wnd, temp);
-				delete[] temp;
+				W32Util::CopyTextToClipboard(wnd, temp.get());
 			}
 			break;
 			
@@ -553,20 +553,19 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			{
 				auto memLock = Memory::Lock();
 				size_t tempSize = 5 * ((selectedSize + 1) / 2) + 1;
-				char *temp = new char[tempSize];
-				memset(temp, 0, tempSize);
+				auto temp = std::make_unique<char[]>(tempSize);
+				memset(temp.get(), 0, tempSize);
 
-				char *pos = temp;
+				char *pos = temp.get();
 				for (uint32_t p = selectRangeStart_; p < selectRangeEnd_; p += 2) {
 					uint16_t c = Memory::IsValidRange(p, 2) ? Memory::ReadUnchecked_U16(p) : 0xFFFF;
-					pos += snprintf(pos, tempSize - (pos - temp + 1), "%04X ", c);
+					pos += snprintf(pos, tempSize - (pos - temp.get() + 1), "%04X ", c);
 				}
 				// Clear the last space.
-				if (pos > temp)
+				if (pos > temp.get())
 					*(pos - 1) = '\0';
 
-				W32Util::CopyTextToClipboard(wnd, temp);
-				delete[] temp;
+				W32Util::CopyTextToClipboard(wnd, temp.get());
 			}
 			break;
 			
@@ -574,20 +573,19 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button) {
 			{
 				auto memLock = Memory::Lock();
 				size_t tempSize = 9 * ((selectedSize + 3) / 4) + 1;
-				char *temp = new char[tempSize];
-				memset(temp, 0, tempSize);
+				auto temp = std::make_unique<char[]>(tempSize);
+				memset(temp.get(), 0, tempSize);
 
-				char *pos = temp;
+				char *pos = temp.get();
 				for (uint32_t p = selectRangeStart_; p < selectRangeEnd_; p += 4) {
 					uint32_t c = Memory::IsValidRange(p, 4) ? Memory::ReadUnchecked_U32(p) : 0xFFFFFFFF;
-					pos += snprintf(pos, tempSize - (pos - temp + 1), "%08X ", c);
+					pos += snprintf(pos, tempSize - (pos - temp.get() + 1), "%08X ", c);
 				}
 				// Clear the last space.
-				if (pos > temp)
+				if (pos > temp.get())
 					*(pos - 1) = '\0';
 
-				W32Util::CopyTextToClipboard(wnd, temp);
-				delete[] temp;
+				W32Util::CopyTextToClipboard(wnd, temp.get());
 			}
 			break;
 

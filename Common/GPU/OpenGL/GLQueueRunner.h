@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 #include <set>
 #include <unordered_map>
@@ -354,7 +355,7 @@ public:
 
 	void RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls);
 
-	void RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR);
+	void RunSteps(std::vector<std::unique_ptr<GLRStep>> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR);
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();

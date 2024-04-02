@@ -19,6 +19,7 @@
 
 #include "ppsspp_config.h"
 
+#include <memory>
 #include <mutex>
 #include <vector>
 #include <cstdarg>
@@ -28,7 +29,7 @@
 #include "Common/CommonFuncs.h"
 #include "Common/Log.h"
 
-#define	MAX_MESSAGES 8000   
+#define	MAX_MESSAGES 8000
 
 extern const char *hleCurrentThreadName;
 
@@ -111,13 +112,13 @@ private:
 	bool initialized_ = false;
 
 	LogChannel log_[(size_t)Log::NUMBER_OF_LOGS];
-	FileLogListener *fileLog_ = nullptr;
+	std::unique_ptr<FileLogListener> fileLog_;
 #if PPSSPP_PLATFORM(WINDOWS)
-	ConsoleListener *consoleLog_ = nullptr;
+	std::unique_ptr<ConsoleListener> consoleLog_;
 #endif
-	StdioListener *stdioLog_ = nullptr;
-	OutputDebugStringLogListener *debuggerLog_ = nullptr;
-	RingbufferLogListener *ringLog_ = nullptr;
+	std::unique_ptr<StdioListener> stdioLog_;
+	std::unique_ptr<OutputDebugStringLogListener> debuggerLog_;
+	std::unique_ptr<RingbufferLogListener> ringLog_;
 
 	std::mutex listeners_lock_;
 	std::vector<LogListener*> listeners_;
@@ -160,20 +161,20 @@ public:
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	ConsoleListener *GetConsoleListener() const {
-		return consoleLog_;
+		return consoleLog_.get();
 	}
 #endif
 
 	StdioListener *GetStdioListener() const {
-		return stdioLog_;
+		return stdioLog_.get();
 	}
 
 	OutputDebugStringLogListener *GetDebuggerListener() const {
-		return debuggerLog_;
+		return debuggerLog_.get();
 	}
 
 	RingbufferLogListener *GetRingbufferListener() const {
-		return ringLog_;
+		return ringLog_.get();
 	}
 
 	void Init(bool *enabledSetting, bool headless = false);

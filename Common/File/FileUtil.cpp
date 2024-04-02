@@ -335,23 +335,21 @@ std::string ResolvePath(const std::string &path) {
 
 #ifdef _WIN32
 	static const int BUF_SIZE = 32768;
-	wchar_t *buf = new wchar_t[BUF_SIZE] {};
+	auto buf = std::make_unique<wchar_t[]>(BUF_SIZE);
 
 	std::wstring input = ConvertUTF8ToWString(path);
 	// Try to resolve symlinks (such as Documents aliases, etc.) if possible on Vista and higher.
 	// For some paths and remote shares, this may fail, so fall back.
-	if (!ResolvePathVista(input, buf, BUF_SIZE)) {
-		wchar_t *longBuf = new wchar_t[BUF_SIZE] {};
+	if (!ResolvePathVista(input, buf.get(), BUF_SIZE)) {
+		auto longBuf = std::make_unique<wchar_t[]>(BUF_SIZE);
 
-		int result = GetLongPathNameW(input.c_str(), longBuf, BUF_SIZE - 1);
+		int result = GetLongPathNameW(input.c_str(), longBuf.get(), BUF_SIZE - 1);
 		if (result >= BUF_SIZE || result == 0)
-			wcscpy_s(longBuf, BUF_SIZE - 1, input.c_str());
+			wcscpy_s(longBuf.get(), BUF_SIZE - 1, input.c_str());
 
-		result = GetFullPathNameW(longBuf, BUF_SIZE - 1, buf, nullptr);
+		result = GetFullPathNameW(longBuf.get(), BUF_SIZE - 1, buf.get(), nullptr);
 		if (result >= BUF_SIZE || result == 0)
-			wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
-
-		delete [] longBuf;
+			wcscpy_s(buf.get(), BUF_SIZE - 1, input.c_str());
 	}
 
 	// Normalize slashes just in case.
@@ -363,10 +361,9 @@ std::string ResolvePath(const std::string &path) {
 	}
 
 	// Undo the \\?\C:\ syntax that's normally returned (after normalization of slashes.)
-	std::string output = ConvertWStringToUTF8(buf);
+	std::string output = ConvertWStringToUTF8(buf.get());
 	if (buf[0] == '/' && buf[1] == '/' && buf[2] == '?' && buf[3] == '/' && isalpha(buf[4]) && buf[5] == ':')
 		output = output.substr(4);
-	delete [] buf;
 	return output;
 
 #elif PPSSPP_PLATFORM(IOS)
