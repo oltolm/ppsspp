@@ -1,3 +1,4 @@
+#include "GLQueueRunner.h"
 #include "ppsspp_config.h"
 #include "GLRenderManager.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -10,6 +11,9 @@
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Math/math_util.h"
+#include <algorithm>
+#include <memory>
+#include <utility>
 
 #if 0 // def _DEBUG
 #define VLOG(...) INFO_LOG(Log::G3D, __VA_ARGS__)
@@ -111,9 +115,6 @@ void GLRenderManager::ThreadEnd() {
 		frameData_[i].deleter_prev.Perform(this, skipGLCalls_);
 	}
 	deleter_.Perform(this, skipGLCalls_);
-	for (int i = 0; i < (int)steps_.size(); i++) {
-		delete steps_[i];
-	}
 	steps_.clear();
 	initSteps_.clear();
 }
@@ -211,7 +212,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	if (steps_.size() && steps_.back()->stepType == GLRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		if (color != GLRRenderPassAction::CLEAR && depth != GLRRenderPassAction::CLEAR && stencil != GLRRenderPassAction::CLEAR) {
 			// We don't move to a new step, this bind was unnecessary and we can safely skip it.
-			curRenderStep_ = steps_.back();
+			curRenderStep_ = steps_.back().get();
 			return;
 		}
 	}
@@ -226,7 +227,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	step->render.depth = depth;
 	step->render.stencil = stencil;
 	step->tag = tag;
-	steps_.push_back(step);
+	steps_.push_back(std::unique_ptr<GLRStep>(step));
 
 	GLuint clearMask = 0;
 	GLRRenderData data(GLRRenderCommand::CLEAR);
@@ -276,7 +277,7 @@ void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, 
 }
 
 void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask, const char *tag) {
-	GLRStep *step = new GLRStep{ GLRStepType::COPY };
+	auto step = std::make_unique<GLRStep>(GLRStepType::COPY);
 	step->copy.srcRect = srcRect;
 	step->copy.dstPos = dstPos;
 	step->copy.src = src;
@@ -287,11 +288,11 @@ void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	bool fillsDst = dst && srcRect.x == 0 && srcRect.y == 0 && srcRect.w == dst->width && srcRect.h == dst->height;
 	if (dstPos.x != 0 || dstPos.y != 0 || !fillsDst)
 		step->dependencies.insert(dst);
-	steps_.push_back(step);
+	steps_.push_back(std::move(step));
 }
 
 void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter, const char *tag) {
-	GLRStep *step = new GLRStep{ GLRStepType::BLIT };
+	auto step = std::make_unique<GLRStep>(GLRStepType::BLIT);
 	step->blit.srcRect = srcRect;
 	step->blit.dstRect = dstRect;
 	step->blit.src = src;
@@ -303,20 +304,20 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	bool fillsDst = dst && dstRect.x == 0 && dstRect.y == 0 && dstRect.w == dst->width && dstRect.h == dst->height;
 	if (!fillsDst)
 		step->dependencies.insert(dst);
-	steps_.push_back(step);
+	steps_.push_back(std::move(step));
 }
 
 bool GLRenderManager::CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag) {
 	_assert_(pixels);
 
-	GLRStep *step = new GLRStep{ GLRStepType::READBACK };
+	auto step = std::make_unique<GLRStep>(GLRStepType::READBACK);
 	step->readback.src = src;
 	step->readback.srcRect = { x, y, w, h };
 	step->readback.aspectMask = aspectBits;
 	step->readback.dstFormat = destFormat;
 	step->dependencies.insert(src);
 	step->tag = tag;
-	steps_.push_back(step);
+	steps_.push_back(std::move(step));
 
 	curRenderStep_ = nullptr;
 	FlushSync();
@@ -340,12 +341,12 @@ bool GLRenderManager::CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBit
 void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
 	_assert_(texture);
 	_assert_(pixels);
-	GLRStep *step = new GLRStep{ GLRStepType::READBACK_IMAGE };
+	auto step = std::make_unique<GLRStep>(GLRStepType::READBACK_IMAGE);
 	step->readback_image.texture = texture;
 	step->readback_image.mipLevel = mipLevel;
 	step->readback_image.srcRect = { x, y, w, h };
 	step->tag = tag;
-	steps_.push_back(step);
+	steps_.push_back(std::move(step));
 
 	curRenderStep_ = nullptr;
 	FlushSync();

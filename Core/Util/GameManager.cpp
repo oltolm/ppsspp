@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <set>
 #include <sstream>
@@ -671,22 +672,20 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 		}
 		size_t pos = 0;
 		const size_t blockSize = 1024 * 128;
-		u8 *buffer = new u8[blockSize];
+		auto buffer = std::make_unique<u8[]>(blockSize);
 		while (pos < size) {
 			size_t readSize = std::min(blockSize, size - pos);
-			zip_int64_t retval = zip_fread(zf, buffer, readSize);
+			zip_int64_t retval = zip_fread(zf, buffer.get(), readSize);
 			if (retval < 0 || (size_t)retval < readSize) {
 				ERROR_LOG(Log::HLE, "Failed to read %d bytes from zip (%d) - archive corrupt?", (int)readSize, (int)retval);
-				delete[] buffer;
 				fclose(f);
 				zip_fclose(zf);
 				File::Delete(outFilename);
 				return false;
 			}
-			size_t written = fwrite(buffer, 1, readSize, f);
+			size_t written = fwrite(buffer.get(), 1, readSize, f);
 			if (written != readSize) {
 				ERROR_LOG(Log::HLE, "Wrote %d bytes out of %d - Disk full?", (int)written, (int)readSize);
-				delete[] buffer;
 				fclose(f);
 				zip_fclose(zf);
 				File::Delete(outFilename);
@@ -705,7 +704,6 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 		if (zstat.mtime) {
 			File::ChangeMTime(outFilename, zstat.mtime);
 		}
-		delete[] buffer;
 		return true;
 	} else {
 		auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
