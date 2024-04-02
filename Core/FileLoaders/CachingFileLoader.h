@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -26,7 +27,7 @@
 
 class CachingFileLoader : public ProxiedFileLoader {
 public:
-	CachingFileLoader(FileLoader *backend);
+	CachingFileLoader(std::unique_ptr<FileLoader> backend);
 	~CachingFileLoader();
 
 	bool Exists() override;

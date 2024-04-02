@@ -16,10 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/FileLoaders/RetryingFileLoader.h"
+#include <memory>
+#include <utility>
 
 // Takes ownership of backend.
-RetryingFileLoader::RetryingFileLoader(FileLoader *backend)
-	: ProxiedFileLoader(backend) {
+RetryingFileLoader::RetryingFileLoader(std::unique_ptr<FileLoader> backend)
+	: ProxiedFileLoader(std::move(backend)) {
 }
 
 bool RetryingFileLoader::Exists() {

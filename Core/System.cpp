@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include <memory>
+#include <utility>
 
 #ifdef _WIN32
 #pragma warning(disable:4091)
@@ -86,7 +88,7 @@ MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
 static GlobalUIState globalUIState;
 CoreParameter g_CoreParameter;
-static FileLoader *g_loadedFile;
+static std::unique_ptr<FileLoader> g_loadedFile;
 // For background loading thread.
 static std::mutex loadingLock;
 
@@ -218,7 +220,7 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 }
 
-bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
+bool CPU_Init(std::string *errorString, std::unique_ptr<FileLoader> loadedFile) {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 
@@ -234,7 +236,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 
 	Path filename = g_CoreParameter.fileToStart;
 
-	IdentifiedFileType type = Identify_File(loadedFile, errorString);
+	IdentifiedFileType type = Identify_File(loadedFile.get(), errorString);
 
 	// TODO: Put this somewhere better?
 	if (!g_CoreParameter.mountIso.empty()) {
@@ -252,13 +254,13 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-		InitMemoryForGameISO(loadedFile);
+		InitMemoryForGameISO(loadedFile.get());
 		break;
 	case IdentifiedFileType::PSP_PBP:
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		// This is normal for homebrew.
 		// ERROR_LOG(Log::Loader, "PBP directory resolution failed.");
-		InitMemoryForGamePBP(loadedFile);
+		InitMemoryForGamePBP(loadedFile.get());
 		break;
 	case IdentifiedFileType::PSP_ELF:
 		if (Memory::g_PSPModel != PSP_MODEL_FAT) {
@@ -268,7 +270,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 		break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
 		// Try to grab the disc ID from the filename or GE dump.
-		if (DiscIDFromGEDumpPath(filename, loadedFile, &geDumpDiscID)) {
+		if (DiscIDFromGEDumpPath(filename, loadedFile.get(), &geDumpDiscID)) {
 			// Store in SFO, otherwise it'll generate a fake disc ID.
 			g_paramSFO.SetValue("DISC_ID", geDumpDiscID, 16);
 		}
@@ -307,8 +309,8 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 
 	// If they shut down early, we'll catch it when load completes.
 	// Note: this may return before init is complete, which is checked if CPU_IsReady().
-	g_loadedFile = loadedFile;
-	if (!LoadFile(&loadedFile, &g_CoreParameter.errorString)) {
+	g_loadedFile = std::move(loadedFile);
+	if (!LoadFile(&g_loadedFile, &g_CoreParameter.errorString)) {
 		CPU_Shutdown();
 		g_CoreParameter.fileToStart.clear();
 		return false;
@@ -352,10 +354,8 @@ void CPU_Shutdown() {
 	Memory::Shutdown();
 	HLEPlugins::Shutdown();
 
-	delete g_loadedFile;
 	g_loadedFile = nullptr;
 
-	delete g_CoreParameter.mountIsoLoader;
 	delete g_symbolMap;
 	g_symbolMap = nullptr;
 
@@ -363,9 +363,8 @@ void CPU_Shutdown() {
 }
 
 // TODO: Maybe loadedFile doesn't even belong here...
-void UpdateLoadedFile(FileLoader *fileLoader) {
-	delete g_loadedFile;
-	g_loadedFile = fileLoader;
+void UpdateLoadedFile(std::unique_ptr<FileLoader> fileLoader) {
+	g_loadedFile = std::move(fileLoader);
 }
 
 void PSP_UpdateDebugStats(bool collectStats) {
@@ -417,10 +416,10 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	pspIsIniting = true;
 
 	Path filename = g_CoreParameter.fileToStart;
-	FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
+	std::unique_ptr<FileLoader> loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 #if PPSSPP_ARCH(AMD64)
 	if (g_Config.bCacheFullIsoInRam) {
-		loadedFile = new RamCachingFileLoader(loadedFile);
+		loadedFile = std::make_unique<RamCachingFileLoader>(std::move(loadedFile));
 	}
 #endif
 
@@ -428,11 +427,11 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		// Need to re-identify after ResolveFileLoaderTarget - although in practice probably not,
 		// but also, re-using the identification would require some plumbing, to be done later.
 		std::string errorString;
-		IdentifiedFileType type = Identify_File(loadedFile, &errorString);
-		Achievements::SetGame(filename, type, loadedFile);
+		IdentifiedFileType type = Identify_File(loadedFile.get(), &errorString);
+		Achievements::SetGame(filename, type, loadedFile.get());
 	}
 
-	if (!CPU_Init(&g_CoreParameter.errorString, loadedFile)) {
+	if (!CPU_Init(&g_CoreParameter.errorString, std::move(loadedFile))) {
 		*error_string = g_CoreParameter.errorString;
 		if (error_string->empty()) {
 			*error_string = "Failed initializing CPU/Memory";
