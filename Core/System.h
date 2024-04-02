@@ -97,7 +97,7 @@ void PSP_UpdateDebugStats(bool collectStats);
 // Increments or decrements an internal counter.  Intended to be used by debuggers.
 void PSP_ForceDebugStats(bool enable);
 
-void UpdateLoadedFile(std::unique_ptr<FileLoader> fileLoader);
+void UpdateLoadedFile(std::shared_ptr<FileLoader> fileLoader);
 
 // NOTE: These are almost all derived from g_Config.memStickDirectory directly -
 // they are not stored anywhere.
