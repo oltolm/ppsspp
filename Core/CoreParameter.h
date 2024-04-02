@@ -17,10 +17,12 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 
 #include "Common/File/Path.h"
 #include "Core/Compatibility.h"
+#include "Core/Loaders.h"
 
 enum GPUCore {
 	GPUCORE_GLES,
@@ -36,8 +38,6 @@ enum class FPSLimit {
 	CUSTOM2 = 2,
 	ANALOG = 3,
 };
-
-class FileLoader;
 
 class GraphicsContext;
 namespace Draw {
@@ -85,7 +85,7 @@ struct CoreParameter {
 	bool freezeNext = false;
 	bool frozen = false;
 
-	FileLoader *mountIsoLoader = nullptr;
+	std::unique_ptr<FileLoader> mountIsoLoader;
 
 	Compatibility compat;
 };
