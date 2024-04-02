@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <memory>
 #include <set>
 #include <mutex>
 #include <cstring>
@@ -53,8 +54,8 @@ std::map<Path, DiskCachingFileLoaderCache *> DiskCachingFileLoader::caches_;
 std::mutex DiskCachingFileLoader::cachesMutex_;
 
 // Takes ownership of backend.
-DiskCachingFileLoader::DiskCachingFileLoader(FileLoader *backend)
-	: ProxiedFileLoader(backend) {
+DiskCachingFileLoader::DiskCachingFileLoader(std::unique_ptr<FileLoader> backend)
+	: ProxiedFileLoader(std::move(backend)) {
 }
 
 void DiskCachingFileLoader::Prepare() {
@@ -102,7 +103,7 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, 
 		readSize = cache_->ReadFromCache(absolutePos, bytes, data);
 		// While in case the cache size is too small for the entire read.
 		while (readSize < bytes) {
-			readSize += cache_->SaveIntoCache(backend_, absolutePos + readSize, bytes - readSize, (u8 *)data + readSize, flags);
+			readSize += cache_->SaveIntoCache(backend_.get(), absolutePos + readSize, bytes - readSize, (u8 *)data + readSize, flags);
 			// We're done, nothing more to read.
 			if (readSize == bytes) {
 				break;
