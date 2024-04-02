@@ -141,25 +141,25 @@ LogManager::LogManager(bool *enabledSetting) {
 		debuggerLog_ = new OutputDebugStringLogListener();
 #else
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-	fileLog_ = new FileLogListener("");
+	fileLog_.reset(new FileLogListener(""));
 #if PPSSPP_PLATFORM(WINDOWS)
 #if !PPSSPP_PLATFORM(UWP)
-	consoleLog_ = new ConsoleListener();
+	consoleLog_.reset(new ConsoleListener());
 #endif
 	if (IsDebuggerPresent())
-		debuggerLog_ = new OutputDebugStringLogListener();
+		debuggerLog_.reset(new OutputDebugStringLogListener());
 #else
 	stdioLog_ = new StdioListener();
 #endif
 #endif
-	ringLog_ = new RingbufferLogListener();
+	ringLog_.reset(new RingbufferLogListener());
 #endif
 
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-	AddListener(fileLog_);
+	AddListener(fileLog_.get());
 #if PPSSPP_PLATFORM(WINDOWS)
 #if !PPSSPP_PLATFORM(UWP)
-	AddListener(consoleLog_);
+	AddListener(consoleLog_.get());
 #endif
 #else
 	AddListener(stdioLog_);
@@ -168,18 +168,18 @@ LogManager::LogManager(bool *enabledSetting) {
 	if (IsDebuggerPresent() && debuggerLog_ && LOG_MSC_OUTPUTDEBUG)
 		AddListener(debuggerLog_);
 #endif
-	AddListener(ringLog_);
+	AddListener(ringLog_.get());
 #endif
 }
 
 LogManager::~LogManager() {
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; ++i) {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-		RemoveListener(fileLog_);
+		RemoveListener(fileLog_.get());
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-		RemoveListener(consoleLog_);
+		RemoveListener(consoleLog_.get());
 #endif
-		RemoveListener(stdioLog_);
+		RemoveListener(stdioLog_.get());
 #if defined(_MSC_VER) && defined(USING_WIN_UI)
 		RemoveListener(debuggerLog_);
 #endif
@@ -188,28 +188,17 @@ LogManager::~LogManager() {
 
 	// Make sure we don't shutdown while logging.  RemoveListener locks too, but there are gaps.
 	std::lock_guard<std::mutex> listeners_lock(listeners_lock_);
-
-	delete fileLog_;
-#if !defined(MOBILE_DEVICE) || defined(_DEBUG)
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	delete consoleLog_;
-#endif
-	delete stdioLog_;
-	delete debuggerLog_;
-#endif
-	delete ringLog_;
 }
 
 void LogManager::ChangeFileLog(const char *filename) {
 	if (fileLog_) {
-		RemoveListener(fileLog_);
-		delete fileLog_;
+		RemoveListener(fileLog_.get());
 		fileLog_ = nullptr;
 	}
 
 	if (filename) {
-		fileLog_ = new FileLogListener(filename);
-		AddListener(fileLog_);
+		fileLog_.reset(new FileLogListener(filename));
+		AddListener(fileLog_.get());
 	}
 }
 

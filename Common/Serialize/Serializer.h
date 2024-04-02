@@ -29,6 +29,7 @@
 // + Sections can be versioned for backwards/forwards compatibility
 // - Serialization code for anything complex has to be manually written.
 
+#include <memory>
 #include <string>
 #include <cstring>
 #include <vector>
@@ -291,7 +292,7 @@ public:
 
 		// SaveFile takes ownership of buffer (malloc/free)
 		if (error == ERROR_NONE)
-			error = SaveFile(filename, title, gitVersion, buffer, sz);
+			error = SaveFile(filename, title, gitVersion, std::unique_ptr<u8>(buffer), sz);
 		return error;
 	}
 
@@ -338,6 +339,6 @@ private:
 	};
 
 	static Error LoadFile(const Path &filename, std::string *gitVersion, u8 *&buffer, size_t &sz, std::string *failureReason);
-	static Error SaveFile(const Path &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz);
+	static Error SaveFile(const Path &filename, const std::string &title, const char *gitVersion, std::unique_ptr<u8> buffer, size_t sz);
 	static Error LoadFileHeader(File::IOFile &pFile, SChunkHeader &header, std::string *title);
 };

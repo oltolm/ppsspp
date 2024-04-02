@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <memory>
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -218,7 +219,7 @@ static u32 sceAacInit(u32 id)
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
 
-	AuCtx *aac = new AuCtx();
+	auto aac = std::make_unique<AuCtx>();
 	aac->startPos = Memory::Read_U64(id);				// AUDIO stream start position.
 	aac->endPos = Memory::Read_U32(id + 8);				// AUDIO stream end position.
 	aac->AuBuf = Memory::Read_U32(id + 16);             // Input AAC data buffer.	
@@ -228,22 +229,18 @@ static u32 sceAacInit(u32 id)
 	aac->freq = Memory::Read_U32(id + 32);              // Frequency.
 	if (aac->AuBuf == 0 || aac->PCMBuf == 0) {
 		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID ADDRESS AuBuf %08x PCMBuf %08x", aac->AuBuf, aac->PCMBuf);
-		delete aac;
 		return ERROR_AAC_INVALID_ADDRESS;
 	}
 	if (aac->startPos > aac->endPos) {
 		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID startPos %lli endPos %lli", aac->startPos, aac->endPos);
-		delete aac;
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 	if (aac->AuBufSize < 8192 || aac->PCMBufSize < 8192) {
 		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID PARAMETER, bufferSize %i outputSize %i", aac->AuBufSize, aac->PCMBufSize);
-		delete aac; 
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 	if (aac->freq != 24000 && aac->freq != 32000 && aac->freq != 44100 && aac->freq != 48000) {
 		ERROR_LOG(Log::ME, "sceAacInit() AAC INVALID freq %i", aac->freq);
-		delete aac;
 		return ERROR_AAC_INVALID_PARAMETER;
 	}
 
@@ -262,7 +259,7 @@ static u32 sceAacInit(u32 id)
 		delete aacMap[id];
 		aacMap.erase(id);
 	}
-	aacMap[id] = aac;
+	aacMap[id] = aac.release();
 
 	return id;
 }

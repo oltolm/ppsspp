@@ -18,6 +18,8 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <memory>
 
 #include "UI/Theme.h"
 
@@ -163,8 +165,8 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 
 static void LoadAtlasMetadata(Atlas &metadata, const char *filename, bool required) {
 	size_t atlas_data_size = 0;
-	const uint8_t *atlas_data = g_VFS.ReadFile(filename, &atlas_data_size);
-	bool load_success = atlas_data != nullptr && metadata.Load(atlas_data, atlas_data_size);
+	auto atlas_data = std::unique_ptr<uint8_t[]>(g_VFS.ReadFile(filename, &atlas_data_size));
+	bool load_success = atlas_data != nullptr && metadata.Load(atlas_data.get(), atlas_data_size);
 	if (!load_success) {
 		if (required)
 			ERROR_LOG(Log::G3D, "Failed to load %s - graphics will be broken", filename);
@@ -172,7 +174,6 @@ static void LoadAtlasMetadata(Atlas &metadata, const char *filename, bool requir
 			WARN_LOG(Log::G3D, "Failed to load %s", filename);
 		// Stumble along with broken visuals instead of dying...
 	}
-	delete[] atlas_data;
 }
 
 void UpdateTheme(UIContext *ctx) {

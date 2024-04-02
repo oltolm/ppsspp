@@ -17,6 +17,7 @@
 
 // Reference : https://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
 #include "ppsspp_config.h"
+#include <memory>
 #if (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !defined(__EMSCRIPTEN__)
 
 #include "ext/cpu_features/include/cpuinfo_x86.h"
@@ -387,12 +388,12 @@ void CPUInfo::Detect() {
 #if !PPSSPP_PLATFORM(UWP)
 		DWORD len = 0;
 		getLogicalProcessorInformationEx(RelationAll, nullptr, &len);
-		auto processors = new uint8_t[len];
-		if (getLogicalProcessorInformationEx(RelationAll, (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *)processors, &len)) {
+		auto processors = std::make_unique<uint8_t[]>(len);
+		if (getLogicalProcessorInformationEx(RelationAll, (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *)processors.get(), &len)) {
 			num_cores = 0;
 			logical_cpu_count = 0;
-			auto p = processors;
-			while (p < processors + len) {
+			auto p = processors.get();
+			while (p < processors.get() + len) {
 				const auto &processor = *(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *)p;
 				if (processor.Relationship == RelationProcessorCore) {
 					num_cores++;
@@ -406,7 +407,6 @@ void CPUInfo::Detect() {
 				p += processor.Size;
 			}
 		}
-		delete [] processors;
 #endif
 	} else {
 		DWORD len = 0;
