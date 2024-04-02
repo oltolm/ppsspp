@@ -93,7 +93,7 @@ MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
 static GlobalUIState globalUIState;
 CoreParameter g_CoreParameter;
-static std::unique_ptr<FileLoader> g_loadedFile;
+static std::shared_ptr<FileLoader> g_loadedFile;
 // For background loading thread.
 static std::mutex loadingLock;
 // For loadingReason updates.
@@ -235,7 +235,7 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 }
 
-bool CPU_Init(std::string *errorString, std::unique_ptr<FileLoader> loadedFile) {
+bool CPU_Init(std::string *errorString, std::shared_ptr<FileLoader> loadedFile) {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 
@@ -323,7 +323,7 @@ bool CPU_Init(std::string *errorString, std::unique_ptr<FileLoader> loadedFile) 
 
 	// If they shut down early, we'll catch it when load completes.
 	// Note: this may return before init is complete, which is checked if CPU_IsReady().
-	g_loadedFile = std::move(loadedFile);
+	g_loadedFile = loadedFile;
 	if (!LoadFile(&g_loadedFile, &g_CoreParameter.errorString)) {
 		CPU_Shutdown();
 		g_CoreParameter.fileToStart.clear();
@@ -377,7 +377,7 @@ void CPU_Shutdown() {
 }
 
 // TODO: Maybe loadedFile doesn't even belong here...
-void UpdateLoadedFile(std::unique_ptr<FileLoader> fileLoader) {
+void UpdateLoadedFile(std::shared_ptr<FileLoader> fileLoader) {
 	g_loadedFile = std::move(fileLoader);
 }
 
@@ -438,10 +438,10 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	PSP_SetLoading("Loading game...");
 
 	Path filename = g_CoreParameter.fileToStart;
-	std::unique_ptr<FileLoader> loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
+	std::shared_ptr<FileLoader> loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 #if PPSSPP_ARCH(AMD64)
 	if (g_Config.bCacheFullIsoInRam) {
-		loadedFile = std::make_unique<RamCachingFileLoader>(std::move(loadedFile));
+		loadedFile = std::make_shared<RamCachingFileLoader>(loadedFile);
 	}
 #endif
 
@@ -453,7 +453,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		Achievements::SetGame(filename, type, loadedFile.get());
 	}
 
-	if (!CPU_Init(&g_CoreParameter.errorString, std::move(loadedFile))) {
+	if (!CPU_Init(&g_CoreParameter.errorString, loadedFile)) {
 		*error_string = g_CoreParameter.errorString;
 		if (error_string->empty()) {
 			*error_string = "Failed initializing CPU/Memory";

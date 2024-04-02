@@ -149,7 +149,7 @@ namespace Reporting
 
 		AndroidJNIThreadContext jniContext;
 
-		std::unique_ptr<FileLoader> fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
+		std::shared_ptr<FileLoader> fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
 		std::unique_ptr<BlockDevice> blockDevice(constructBlockDevice(fileLoader.get()));
 
 		u32 crc = 0;
