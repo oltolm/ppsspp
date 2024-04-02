@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -122,7 +123,6 @@ public:
 		if (program) {
 			glDeleteProgram(program);
 		}
-		delete locData_;
 	}
 	struct Semantic {
 		int location;
@@ -146,7 +146,7 @@ public:
 	std::vector<UniformLocQuery> queries_;
 	std::vector<Initializer> initialize_;
 
-	GLRProgramLocData *locData_;
+	std::unique_ptr<GLRProgramLocData> locData_;
 	bool use_clip_distance[8]{};
 
 	struct UniformInfo {
@@ -209,7 +209,7 @@ class GLPushBuffer;
 struct GLRRenderThreadTask {
 	GLRRenderThreadTask(GLRRunType _runType) : runType(_runType) {}
 
-	std::vector<GLRStep *> steps;
+	std::vector<std::unique_ptr<GLRStep>> steps;
 	FastVec<GLRInitStep> initSteps;
 
 	int frame = -1;
@@ -300,7 +300,7 @@ public:
 	// not be an active render pass.
 	GLRProgram *CreateProgram(
 		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
-		std::vector<GLRProgram::Initializer> initializers, GLRProgramLocData *locData, const GLRProgramFlags &flags) {
+		std::vector<GLRProgram::Initializer> initializers, std::unique_ptr<GLRProgramLocData> locData, const GLRProgramFlags &flags) {
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::CREATE_PROGRAM;
 		_assert_(shaders.size() <= ARRAY_SIZE(step.create_program.shaders));
@@ -308,7 +308,7 @@ public:
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
 		step.create_program.program->initialize_ = initializers;
-		step.create_program.program->locData_ = locData;
+		step.create_program.program->locData_ = std::move(locData);
 		step.create_program.program->use_clip_distance[0] = flags.useClipDistance0;
 		step.create_program.program->use_clip_distance[1] = flags.useClipDistance1;
 		step.create_program.program->use_clip_distance[2] = flags.useClipDistance2;
@@ -864,7 +864,7 @@ private:
 	bool insideFrame_ = false;
 
 	GLRStep *curRenderStep_ = nullptr;
-	std::vector<GLRStep *> steps_;
+	std::vector<std::unique_ptr<GLRStep>> steps_;
 	FastVec<GLRInitStep> initSteps_;
 
 	// Execution time state

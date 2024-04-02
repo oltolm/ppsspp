@@ -1,4 +1,5 @@
 #include "ppsspp_config.h"
+#include <memory>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLDebugLog.h"
@@ -621,7 +622,7 @@ retry_depth:
 	currentReadHandle_ = fbo->handle;
 }
 
-void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR) {
+void GLQueueRunner::RunSteps(std::vector<std::unique_ptr<GLRStep>> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR) {
 	if (skipGLCalls) {
 		if (keepSteps) {
 			return;
@@ -650,7 +651,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 			default:
 				break;
 			}
-			delete steps[i];
+			steps[i] = nullptr;
 		}
 		return;
 	}
@@ -714,7 +715,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 			frameData.profile.passesString += StepToString(step);
 		}
 		if (!keepSteps) {
-			delete steps[i];
+			steps[i] = nullptr;
 		}
 	}
 

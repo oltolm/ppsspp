@@ -134,16 +134,13 @@ namespace Reporting
 
 		AndroidJNIThreadContext jniContext;
 
-		FileLoader *fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
-		BlockDevice *blockDevice = constructBlockDevice(fileLoader);
+		std::shared_ptr<FileLoader> fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
+		std::unique_ptr<BlockDevice> blockDevice(constructBlockDevice(fileLoader.get()));
 
 		u32 crc = 0;
 		if (blockDevice) {
-			crc = CalculateCRC(blockDevice, &crcCancel);
+			crc = CalculateCRC(blockDevice.get(), &crcCancel);
 		}
-
-		delete blockDevice;
-		delete fileLoader;
 
 		std::lock_guard<std::mutex> guard(crcLock);
 		crcResults[crcFilename] = crc;
