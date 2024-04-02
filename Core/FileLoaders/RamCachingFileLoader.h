@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <mutex>
 #include <thread>
@@ -26,7 +27,7 @@
 
 class RamCachingFileLoader : public ProxiedFileLoader {
 public:
-	RamCachingFileLoader(FileLoader *backend);
+	RamCachingFileLoader(std::unique_ptr<FileLoader> backend);
 	~RamCachingFileLoader();
 
 	bool Exists() override;

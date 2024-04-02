@@ -363,7 +363,7 @@ static Path NormalizePath(const Path &path) {
 bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	// This is really just for headless, might need tweaking later.
 	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
-		auto bd = constructBlockDevice(PSP_CoreParameter().mountIsoLoader);
+		auto bd = constructBlockDevice(PSP_CoreParameter().mountIsoLoader.get());
 		if (bd != NULL) {
 			auto umd2 = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
 			auto blockSystem = std::make_shared<ISOBlockSystem>(umd2);

@@ -272,7 +272,7 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 bool GameInfo::CreateLoader() {
 	if (!fileLoader) {
 		std::lock_guard<std::mutex> guard(loaderLock);
-		fileLoader.reset(ConstructFileLoader(filePath_));
+		fileLoader = ConstructFileLoader(filePath_);
 		if (!fileLoader)
 			return false;
 	}
@@ -288,8 +288,7 @@ std::shared_ptr<FileLoader> GameInfo::GetFileLoader() {
 
 	std::lock_guard<std::mutex> guard(loaderLock);
 	if (!fileLoader) {
-		FileLoader *loader = ConstructFileLoader(filePath_);
-		fileLoader.reset(loader);
+		fileLoader = ConstructFileLoader(filePath_);
 		return fileLoader;
 	}
 	return fileLoader;
@@ -503,7 +502,7 @@ public:
 				if (info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 					Path ebootPath = ResolvePBPFile(gamePath_);
 					if (ebootPath != gamePath_) {
-						pbpLoader.reset(ConstructFileLoader(ebootPath));
+						pbpLoader = ConstructFileLoader(ebootPath);
 					}
 				}
 

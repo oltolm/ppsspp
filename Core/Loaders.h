@@ -93,10 +93,9 @@ public:
 
 class ProxiedFileLoader : public FileLoader {
 public:
-	ProxiedFileLoader(FileLoader *backend) : backend_(backend) {}
+	ProxiedFileLoader(std::unique_ptr<FileLoader> backend) : backend_(std::move(backend)) {}
 	~ProxiedFileLoader() {
 		// Takes ownership.
-		delete backend_;
 	}
 
 	bool IsRemote() override {
@@ -131,16 +130,16 @@ public:
 	}
 
 protected:
-	FileLoader *backend_;
+	std::unique_ptr<FileLoader> backend_;
 };
 
 inline u32 operator & (const FileLoader::Flags &a, const FileLoader::Flags &b) {
 	return (u32)a & (u32)b;
 }
 
-FileLoader *ConstructFileLoader(const Path &filename);
+std::unique_ptr<FileLoader> ConstructFileLoader(const Path &filename);
 // Resolve to the target binary, ISO, or other file (e.g. from a directory.)
-FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader);
+std::unique_ptr<FileLoader> ResolveFileLoaderTarget(std::unique_ptr<FileLoader> fileLoader);
 
 Path ResolvePBPDirectory(const Path &filename);
 Path ResolvePBPFile(const Path &filename);
@@ -148,6 +147,6 @@ Path ResolvePBPFile(const Path &filename);
 IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorString);
 
 // Can modify the string filename, as it calls IdentifyFile above.
-bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string);
+bool LoadFile(std::unique_ptr<FileLoader> *fileLoaderPtr, std::string *error_string);
 
 bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error);
