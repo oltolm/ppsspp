@@ -52,6 +52,10 @@ extern "C" {
 #include "libavutil/imgutils.h"
 #include "libswscale/swscale.h"
 
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 23, 100)
+	// private libavformat api (see demux.h in ffmpeg src tree)
+	void avpriv_stream_set_need_parsing(AVStream *st, enum AVStreamParseType type);
+#endif
 }
 #endif // USE_FFMPEG
 
@@ -431,6 +435,10 @@ bool MediaEngine::addVideoStream(int streamNum, int streamId) {
 			stream->codecpar->codec_id = AV_CODEC_ID_H264;
 #else
 			stream->request_probe = 0;
+#endif
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 23, 100)
+			avpriv_stream_set_need_parsing(stream, AVSTREAM_PARSE_FULL);
+#else
 			stream->need_parsing = AVSTREAM_PARSE_FULL;
 #endif
 			// We could set the width here, but we don't need to.
@@ -527,7 +535,7 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 
 		AVStream *stream = m_pFormatCtx->streams[streamNum];
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
-		AVCodec *pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
+		const AVCodec *pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
 		if (!pCodec) {
 			WARN_LOG_REPORT(Log::ME, "Could not find decoder for %d", (int)stream->codecpar->codec_id);
 			return false;
