@@ -312,7 +312,7 @@ static bool ServeDebuggerFile(const http::ServerRequest &request) {
 		return false;
 
 	size_t size;
-	uint8_t *data = g_VFS.ReadFile(filename, &size);
+	std::unique_ptr<uint8_t[]> data(g_VFS.ReadFile(filename, &size));
 	if (!data)
 		return false;
 
@@ -333,9 +333,8 @@ static bool ServeDebuggerFile(const http::ServerRequest &request) {
 	}
 
 	request.WriteHttpResponseHeader("1.0", 200, size, mimeType);
-	request.Out()->Push((char *)data, size);
+	request.Out()->Push((char *)data.get(), size);
 
-	delete[] data;
 	return true;
 }
 

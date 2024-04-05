@@ -214,14 +214,11 @@ public:
 class PsmfPlayer {
 public:
 	// For savestates only.
-	PsmfPlayer() : videoWidth(480), videoHeight(272) {
-		mediaengine = new MediaEngine();
+	PsmfPlayer() : videoWidth(480), videoHeight(272), mediaengine(new MediaEngine()) {
 	}
 	PsmfPlayer(const PsmfPlayerCreateData *data);
 	~PsmfPlayer() {
 		AbortFinish();
-		if (mediaengine) 
-			delete mediaengine;
 		pspFileSystem.CloseFile(filehandle);
 	}
 	void DoState(PointerWrap &p);
@@ -276,7 +273,7 @@ public:
 	SceMpegAu psmfPlayerAvcAu;
 	PsmfPlayerStatus status;
 
-	MediaEngine *mediaengine;
+	std::unique_ptr<MediaEngine> mediaengine;
 	HLEHelperThread *finishThread = nullptr;
 };
 
@@ -425,7 +422,7 @@ Psmf::~Psmf() {
 	streamMap.clear();
 }
 
-PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
+PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) : mediaengine(new MediaEngine()) {
 	videoCodec = -1;
 	videoStreamNum = -1;
 	audioCodec = -1;
@@ -434,7 +431,6 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 	playSpeed = 1;
 	totalDurationTimestamp = 0;
 	status = PSMF_PLAYER_STATUS_INIT;
-	mediaengine = new MediaEngine();
 	finishThread = nullptr;
 	filehandle = 0;
 	fileoffset = 0;
