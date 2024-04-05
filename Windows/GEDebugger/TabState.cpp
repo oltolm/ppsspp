@@ -1060,7 +1060,7 @@ bool CtrlStateValues::OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) {
 }
 
 void CtrlStateValues::SetCmdValue(u32 op) {
-	SendMessage(GetParent(GetParent(GetHandle())), WM_GEDBG_SETCMDWPARAM, op, NULL);
+	SendMessage(GetParent(GetParent(GetHandle())), WM_GEDBG_SETCMDWPARAM, op, 0);
 	Update();
 }
 

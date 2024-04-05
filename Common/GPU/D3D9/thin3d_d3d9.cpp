@@ -737,7 +737,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	}
 
 	if (SUCCEEDED(result)) {
-		snprintf(shadeLangVersion_, sizeof(shadeLangVersion_), "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
+		snprintf(shadeLangVersion_, sizeof(shadeLangVersion_), "PS: %04x VS: %04x", static_cast<unsigned>(d3dCaps_.PixelShaderVersion & 0xFFFF), static_cast<unsigned>(d3dCaps_.VertexShaderVersion & 0xFFFFu));
 	} else {
 		WARN_LOG(Log::G3D, "Direct3D9: Failed to get the device caps!");
 		truncate_cpy(shadeLangVersion_, "N/A");
