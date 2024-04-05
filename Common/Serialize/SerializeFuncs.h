@@ -18,6 +18,7 @@
 #pragma once
 
 // Templates for save state serialization.  See Serializer.h.
+#include <memory>
 #include <string>
 #include <type_traits>
 #include "Common/Serialize/Serializer.h"
@@ -59,6 +60,11 @@ struct DoHelper_<T, true, false> {
 template<class T>
 void DoClass(PointerWrap &p, T &x) {
 	x.DoState(p);
+}
+
+template<class T>
+void DoClass(PointerWrap &p, std::unique_ptr<T> &x) {
+	x->DoState(p);
 }
 
 template<class T>
