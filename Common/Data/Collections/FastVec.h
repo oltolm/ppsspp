@@ -5,6 +5,7 @@
 // This is not allows by std::vector but is very useful for our sometimes oversized unions.
 // Also, copies during resize are done by memcpy, not by any move constructor or similar.
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 

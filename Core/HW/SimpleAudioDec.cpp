@@ -35,6 +35,9 @@ extern "C" {
 #include "libavformat/avformat.h"
 #include "libswresample/swresample.h"
 #include "libavutil/samplefmt.h"
+#ifndef _MSC_VER
+#include "libavcodec/codec.h"
+#endif
 #include "libavcodec/avcodec.h"
 #include "libavutil/version.h"
 

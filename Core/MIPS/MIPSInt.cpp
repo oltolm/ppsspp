@@ -714,7 +714,7 @@ namespace MIPSInt
 			} 
 			else if (_RS == 1) //rotr
 			{
-				R(rd) = __rotr(R(rt), sa);
+				R(rd) = _rotr(R(rt), sa);
 				break;
 			}
 			else
@@ -730,7 +730,7 @@ namespace MIPSInt
 			}
 			else if (_FD == 1) // rotrv
 			{
-				R(rd) = __rotr(R(rt), R(rs));
+				R(rd) = _rotr(R(rt), R(rs));
 				break;
 			}
 			else goto wrong;

@@ -82,22 +82,6 @@ static u64 __RtcGetCurrentTick()
 	return CoreTiming::GetGlobalTimeUs() + rtcBaseTicks;
 }
 
-#if defined(__MINGW32__)
-errno_t _get_timezone(long *seconds)
-{
-  time_t now = time(NULL);
-
-  struct tm *gm = gmtime(&now);
-  time_t gmt = mktime(gm);
-
-  struct tm *loc = localtime(&now);
-  time_t local = mktime(loc);
-
-  *seconds = local - gmt;
-  return 0;
-}
-#endif
-
 #if defined(_WIN32)
 #define FILETIME_FROM_UNIX_EPOCH_US (rtcMagicOffset - rtcFiletimeOffset)
 
@@ -447,10 +431,14 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickLocalPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#ifdef _WIN32
+#ifdef _UCRT
 		long timezone_val;
 		_get_timezone(&timezone_val);
 		srcTick -= -timezone_val * 1000000ULL;
+#elif defined(_WIN32)
+		TIME_ZONE_INFORMATION timeZoneInformation;
+		GetTimeZoneInformation(&timeZoneInformation);
+		srcTick -= -timeZoneInformation.Bias * 60 * 1000000ULL;
 #elif !defined(_AIX) && !defined(__sgi) && !defined(__hpux) && !defined(HAVE_LIBNX)
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
@@ -472,10 +460,14 @@ static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
 	{
 		u64 srcTick = Memory::Read_U64(tickUTCPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#ifdef _WIN32
+#ifdef _UCRT
 		long timezone_val;
 		_get_timezone(&timezone_val);
 		srcTick += -timezone_val * 1000000ULL;
+#elif defined(_WIN32)
+		TIME_ZONE_INFORMATION timeZoneInformation;
+		GetTimeZoneInformation(&timeZoneInformation);
+		srcTick += -timeZoneInformation.Bias * 60 * 1000000ULL;
 #elif !defined(_AIX) && !defined(__sgi) && !defined(__hpux) && !defined(HAVE_LIBNX)
 		time_t timezone = 0;
 		tm *time = localtime(&timezone);
@@ -932,14 +924,18 @@ static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 	}
 
 	int tz_seconds;
-#ifdef _WIN32
-		long timezone_val;
-		_get_timezone(&timezone_val);
-		tz_seconds = -timezone_val;
+#ifdef _UCRT
+	long timezone_val;
+	_get_timezone(&timezone_val);
+	tz_seconds = -timezone_val;
+#elif defined(_WIN32)
+	TIME_ZONE_INFORMATION timeZoneInformation;
+	GetTimeZoneInformation(&timeZoneInformation);
+	tz_seconds = -timeZoneInformation.Bias * 60;
 #elif !defined(_AIX) && !defined(__sgi) && !defined(__hpux) && !defined(HAVE_LIBNX)
-		time_t timezone = 0;
-		tm *time = localtime(&timezone);
-		tz_seconds = time->tm_gmtoff;
+	time_t timezone = 0;
+	tm *time = localtime(&timezone);
+	tz_seconds = time->tm_gmtoff;
 #endif
 
 	DEBUG_LOG(SCERTC, "sceRtcFormatRFC2822LocalTime(%08x, %08x)", outPtr, srcTickPtr);
@@ -969,14 +965,18 @@ static int sceRtcFormatRFC3339LocalTime(u32 outPtr, u32 srcTickPtr)
 	}
 
 	int tz_seconds;
-#ifdef _WIN32
-		long timezone_val;
-		_get_timezone(&timezone_val);
-		tz_seconds = -timezone_val;
+#ifdef _UCRT
+	long timezone_val;
+	_get_timezone(&timezone_val);
+	tz_seconds = -timezone_val;
+#elif defined(_WIN32)
+	TIME_ZONE_INFORMATION timeZoneInformation;
+	GetTimeZoneInformation(&timeZoneInformation);
+	tz_seconds = -timeZoneInformation.Bias * 60;
 #elif !defined(_AIX) && !defined(__sgi) && !defined(__hpux) && !defined(HAVE_LIBNX)
-		time_t timezone = 0;
-		tm *time = localtime(&timezone);
-		tz_seconds = time->tm_gmtoff;
+	time_t timezone = 0;
+	tm *time = localtime(&timezone);
+	tz_seconds = time->tm_gmtoff;
 #endif
 
 	DEBUG_LOG(SCERTC, "sceRtcFormatRFC3339LocalTime(%08x, %08x)", outPtr, srcTickPtr);
