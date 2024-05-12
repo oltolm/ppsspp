@@ -154,7 +154,7 @@ void IRNativeBackend::DoMIPSInst(uint32_t value) {
 
 uint32_t IRNativeBackend::DoIRInst(uint64_t value) {
 	IRInst inst[2];
-	memcpy(&inst, &value, sizeof(inst));
+	memcpy(&inst, &value, sizeof(value));
 
 	if constexpr (enableDebugStats)
 		debugSeenNotCompiledIR[(uint8_t)inst[0].op]++;
