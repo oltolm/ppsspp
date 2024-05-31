@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <memory>
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
@@ -36,19 +37,16 @@
 #include "GPU/Software/Lighting.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
+#include "Log.h"
 #include "GPU/Software/TransformUnit.h"
 
 #define TRANSFORM_BUF_SIZE (65536 * 48)
 
-TransformUnit::TransformUnit() {
-	decoded_ = (u8 *)AllocateAlignedMemory(TRANSFORM_BUF_SIZE, 16);
-	_assert_(decoded_);
-	binner_ = new BinManager();
-}
-
-TransformUnit::~TransformUnit() {
-	FreeAlignedMemory(decoded_);
-	delete binner_;
+TransformUnit::TransformUnit()
+    : decoded_((u8 *)AllocateAlignedMemory(TRANSFORM_BUF_SIZE, 16),
+               &FreeAlignedMemory) {
+  _assert_(decoded_)
+  binner_ = std::make_unique<BinManager>();
 }
 
 bool TransformUnit::IsStarted() {
@@ -565,7 +563,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		return;
 
 	static TransformState transformState;
-	SoftwareVertexReader vreader(decoded_, vdecoder, vertex_type, vertex_count, vertices, indices, transformState, *this);
+	SoftwareVertexReader vreader(decoded_.get(), vdecoder, vertex_type, vertex_count, vertices, indices, transformState, *this);
 
 	if (prim_type != GE_PRIM_KEEP_PREVIOUS) {
 		data_index_ = 0;
