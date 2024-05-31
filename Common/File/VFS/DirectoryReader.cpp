@@ -1,7 +1,9 @@
 #include <cstdio>
+#include <memory>
 
 #include "Common/Common.h"
 #include "Common/Log.h"
+#include "VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
 
 DirectoryReader::DirectoryReader(const Path &path) {
@@ -45,13 +47,13 @@ public:
 	FILE *file = nullptr;
 };
 
-VFSFileReference *DirectoryReader::GetFile(const char *path) {
+std::unique_ptr<VFSFileReference> DirectoryReader::GetFile(const char *path) {
 	Path filePath = path_ / path;
 	if (!File::Exists(filePath)) {
 		return nullptr;
 	}
 
-	DirectoryReaderFileReference *reference = new DirectoryReaderFileReference();
+	auto reference = std::make_unique<DirectoryReaderFileReference>();
 	reference->path = filePath;
 	return reference;
 }
@@ -61,12 +63,10 @@ bool DirectoryReader::GetFileInfo(VFSFileReference *vfsReference, File::FileInfo
 	return File::GetFileInfo(reference->path, fileInfo);
 }
 
-void DirectoryReader::ReleaseFile(VFSFileReference *vfsReference) {
-	DirectoryReaderFileReference *reference = (DirectoryReaderFileReference *)vfsReference;
-	delete reference;
+void DirectoryReader::ReleaseFile(std::unique_ptr<VFSFileReference> vfsReference) {
 }
 
-VFSOpenFile *DirectoryReader::OpenFileForRead(VFSFileReference *vfsReference, size_t *size) {
+std::unique_ptr<VFSOpenFile> DirectoryReader::OpenFileForRead(VFSFileReference *vfsReference, size_t *size) {
 	DirectoryReaderFileReference *reference = (DirectoryReaderFileReference *)vfsReference;
 	FILE *file = File::OpenCFile(reference->path, "rb");
 	if (!file) {
@@ -75,7 +75,7 @@ VFSOpenFile *DirectoryReader::OpenFileForRead(VFSFileReference *vfsReference, si
 	fseek(file, 0, SEEK_END);
 	*size = ftell(file);
 	fseek(file, 0, SEEK_SET);
-	DirectoryReaderOpenFile *openFile = new DirectoryReaderOpenFile();
+	auto openFile = std::make_unique<DirectoryReaderOpenFile>();
 	openFile->file = file;
 	return openFile;
 }
@@ -90,10 +90,8 @@ size_t DirectoryReader::Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t leng
 	return fread(buffer, 1, length, openFile->file);
 }
 
-void DirectoryReader::CloseFile(VFSOpenFile *vfsOpenFile) {
-	DirectoryReaderOpenFile *openFile = (DirectoryReaderOpenFile *)vfsOpenFile;
+void DirectoryReader::CloseFile(std::unique_ptr<VFSOpenFile> vfsOpenFile) {
+	DirectoryReaderOpenFile *openFile = (DirectoryReaderOpenFile *)vfsOpenFile.get();
 	_dbg_assert_(openFile->file != nullptr);
 	fclose(openFile->file);
-	openFile->file = nullptr;
-	delete openFile;
 }
