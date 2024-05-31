@@ -22,6 +22,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Math3D.h"
+#include <memory>
 
 using namespace Math3D;
 
@@ -115,7 +116,7 @@ class SoftwareVertexReader;
 class TransformUnit {
 public:
 	TransformUnit();
-	~TransformUnit();
+	~TransformUnit() = default;
 
 	bool IsStarted();
 
@@ -154,8 +155,8 @@ private:
 	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state);
 	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2);
 
-	u8 *decoded_ = nullptr;
-	BinManager *binner_ = nullptr;
+	std::unique_ptr<u8, decltype(&FreeAlignedMemory)> decoded_;
+	std::unique_ptr<BinManager> binner_;
 
 	// Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.
 	ClipVertexData data_[4];
