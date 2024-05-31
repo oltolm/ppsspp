@@ -19,7 +19,9 @@
 
 #include "ppsspp_config.h"
 
+#include <memory>
 #include <png.h>
+#include <utility>
 
 #include "ext/basis_universal/basisu_transcoder.h"
 #include "ext/basis_universal/basisu_file_headers.h"
@@ -105,8 +107,7 @@ ReplacedTexture::~ReplacedTexture() {
 	}
 
 	for (auto &level : levels_) {
-		vfs_->ReleaseFile(level.fileRef);
-		level.fileRef = nullptr;
+		vfs_->ReleaseFile(std::move(level.fileRef));
 	}
 }
 
@@ -222,7 +223,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 			break;
 		}
 
-		VFSFileReference *fileRef = vfs_->GetFile(desc_.filenames[i].c_str());
+		std::unique_ptr<VFSFileReference> fileRef = vfs_->GetFile(desc_.filenames[i].c_str());
 		if (!fileRef) {
 			if (i == 0) {
 				INFO_LOG(Log::TexReplacement, "Texture replacement file '%s' not found in %s", desc_.filenames[i].c_str(), vfs_->toString().c_str());
@@ -240,7 +241,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		}
 
-		result = LoadLevelData(fileRef, desc_.filenames[i], i, &pixelFormat);
+		result = LoadLevelData(std::move(fileRef), desc_.filenames[i], i, &pixelFormat);
 		if (result == LoadLevelResult::DONE) {
 			// Loaded all the levels we're gonna get.
 			fmt = pixelFormat;
@@ -290,7 +291,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 }
 
 // Returns true if Prepare should keep calling this to load more levels.
-ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int mipLevel, Draw::DataFormat *pixelFormat) {
+ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(std::unique_ptr<VFSFileReference> fileRef, const std::string &filename, int mipLevel, Draw::DataFormat *pixelFormat) {
 	bool good = false;
 
 	if (data_.size() <= mipLevel) {
@@ -304,21 +305,21 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 	ReplacedTextureLevel level;
 	size_t fileSize;
-	VFSOpenFile *openFile = vfs_->OpenFileForRead(fileRef, &fileSize);
+	std::unique_ptr<VFSOpenFile> openFile = vfs_->OpenFileForRead(fileRef.get(), &fileSize);
 	if (!openFile) {
 		// File missing, no more levels. This is alright.
 		return LoadLevelResult::DONE;
 	}
 
 	std::string magic;
-	ReplacedImageType imageType = Identify(vfs_, openFile, &magic);
+	ReplacedImageType imageType = Identify(vfs_, openFile.get(), &magic);
 
 	bool ddsDX10 = false;
 	int numMips = 1;
 
 	if (imageType == ReplacedImageType::KTX2) {
 		KTXHeader header;
-		good = vfs_->Read(openFile, &header, sizeof(header)) == sizeof(header);
+		good = vfs_->Read(openFile.get(), &header, sizeof(header)) == sizeof(header);
 
 		level.w = header.pixelWidth;
 		level.h = header.pixelHeight;
@@ -334,7 +335,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 	} else if (imageType == ReplacedImageType::DDS) {
 		DDSHeader header;
 		DDSHeaderDXT10 header10{};
-		good = vfs_->Read(openFile, &header, sizeof(header)) == sizeof(header);
+		good = vfs_->Read(openFile.get(), &header, sizeof(header)) == sizeof(header);
 
 		*pixelFormat = Draw::DataFormat::UNDEFINED;
 		u32 format;
@@ -343,7 +344,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			// INFO_LOG(Log::TexReplacement, "DDS fourcc: %c%c%c%c", fcc[0], fcc[1], fcc[2], fcc[3]);
 			if (header.ddspf.dwFourCC == MK_FOURCC("DX10")) {
 				ddsDX10 = true;
-				good = good && vfs_->Read(openFile, &header10, sizeof(header10)) == sizeof(header10);
+				good = good && vfs_->Read(openFile.get(), &header10, sizeof(header10)) == sizeof(header10);
 				format = header10.dxgiFormat;
 				switch (format) {
 				case 71: // DXGI_FORMAT_BC1_UNORM
@@ -421,14 +422,14 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			uint32_t h;
 			uint32_t flags;
 		} header;
-		good = vfs_->Read(openFile, &header, sizeof(header)) == sizeof(header);
+		good = vfs_->Read(openFile.get(), &header, sizeof(header)) == sizeof(header);
 		level.w = header.w;
 		level.h = header.h;
 		good = good && (header.flags & ZIM_FORMAT_MASK) == ZIM_RGBA8888;
 		*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else if (imageType == ReplacedImageType::PNG) {
 		PNGHeaderPeek headerPeek;
-		good = vfs_->Read(openFile, &headerPeek, sizeof(headerPeek)) == sizeof(headerPeek);
+		good = vfs_->Read(openFile.get(), &headerPeek, sizeof(headerPeek)) == sizeof(headerPeek);
 		if (good && headerPeek.IsValidPNGHeader()) {
 			level.w = headerPeek.Width();
 			level.h = headerPeek.Height();
@@ -455,25 +456,25 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 	}
 
 	if (!good) {
-		vfs_->CloseFile(openFile);
+		vfs_->CloseFile(std::move(openFile));
 		return LoadLevelResult::LOAD_ERROR;
 	}
 
-	vfs_->Rewind(openFile);
+	vfs_->Rewind(openFile.get());
 
-	level.fileRef = fileRef;
+	level.fileRef = std::move(fileRef);
 
 	if (imageType == ReplacedImageType::KTX2) {
 		// Just slurp the whole file in one go and feed to the decoder.
 		std::vector<uint8_t> buffer;
 		buffer.resize(fileSize);
-		buffer.resize(vfs_->Read(openFile, &buffer[0], buffer.size()));
+		buffer.resize(vfs_->Read(openFile.get(), &buffer[0], buffer.size()));
 		vfs_->CloseFile(openFile);
 
 		basist::ktx2_transcoder transcoder;
 		if (!transcoder.init(buffer.data(), (int)buffer.size())) {
 			WARN_LOG(Log::TexReplacement, "Error reading KTX file");
-			vfs_->CloseFile(openFile);
+			vfs_->CloseFile(std::move(openFile));
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
@@ -513,7 +514,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			}
 		} else {
 			WARN_LOG(Log::TexReplacement, "PPSSPP currently only supports KTX for basis/UASTC textures. This may change in the future.");
-			vfs_->CloseFile(openFile);
+			vfs_->CloseFile(std::move(openFile));
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
@@ -555,7 +556,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			level.h = levelInfo.m_orig_height;
 			if (i != 0)
 				level.fileRef = nullptr;
-			levels_.push_back(level);
+			levels_.push_back(std::move(level));
 		}
 		transcoder.clear();
 
@@ -566,9 +567,9 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 		DDSHeader header;
 		DDSHeaderDXT10 header10{};
-		vfs_->Read(openFile, &header, sizeof(header));
+		vfs_->Read(openFile.get(), &header, sizeof(header));
 		if (ddsDX10) {
-			vfs_->Read(openFile, &header10, sizeof(header10));
+			vfs_->Read(openFile.get(), &header10, sizeof(header10));
 		}
 
 		int blockSize = 0;
@@ -589,18 +590,18 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			int bytesToRead = RoundUpTo4(level.w) * RoundUpTo4(level.h) * blockSize / 16;
 			out.resize(bytesToRead);
 
-			size_t read_bytes = vfs_->Read(openFile, &out[0], bytesToRead);
+			size_t read_bytes = vfs_->Read(openFile.get(), &out[0], bytesToRead);
 			if (read_bytes != bytesToRead) {
 				WARN_LOG(Log::TexReplacement, "DDS: Expected %d bytes, got %d", bytesToRead, (int)read_bytes);
 			}
 
-			levels_.push_back(level);
 			level.w = std::max(level.w / 2, 1);
 			level.h = std::max(level.h / 2, 1);
 			if (i != 0)
 				level.fileRef = nullptr;  // We only provide a fileref on level 0 if we have mipmaps.
+			levels_.push_back(std::move(level));
 		}
-		vfs_->CloseFile(openFile);
+		vfs_->CloseFile(std::move(openFile));
 
 		return LoadLevelResult::DONE;  // don't read more levels
 
@@ -609,13 +610,13 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		auto zim = std::make_unique<uint8_t[]>(fileSize);
 		if (!zim) {
 			ERROR_LOG(Log::TexReplacement, "Failed to allocate memory for texture replacement");
-			vfs_->CloseFile(openFile);
+			vfs_->CloseFile(std::move(openFile));
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
-		if (vfs_->Read(openFile, &zim[0], fileSize) != fileSize) {
+		if (vfs_->Read(openFile.get(), &zim[0], fileSize) != fileSize) {
 			ERROR_LOG(Log::TexReplacement, "Could not load texture replacement: %s - failed to read ZIM", filename.c_str());
-			vfs_->CloseFile(openFile);
+			vfs_->CloseFile(std::move(openFile));
 			return LoadLevelResult::LOAD_ERROR;
 		}
 		vfs_->CloseFile(openFile);
@@ -644,7 +645,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			if (res == CHECKALPHA_ANY || mipLevel == 0) {
 				alphaStatus_ = ReplacedTextureAlpha(res);
 			}
-			levels_.push_back(level);
+			levels_.push_back(std::move(level));
 		} else {
 			good = false;
 		}
@@ -657,7 +658,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 		std::string pngdata;
 		pngdata.resize(fileSize);
-		pngdata.resize(vfs_->Read(openFile, &pngdata[0], fileSize));
+		pngdata.resize(vfs_->Read(openFile.get(), &pngdata[0], fileSize));
 		vfs_->CloseFile(openFile);
 		if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
 			ERROR_LOG(Log::TexReplacement, "Could not load texture replacement info: %s - %s (zip)", filename.c_str(), png.message);
@@ -683,7 +684,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		out.resize(level.w * level.h * 4);
 		if (!png_image_finish_read(&png, nullptr, &out[0], level.w * 4, nullptr)) {
 			ERROR_LOG(Log::TexReplacement, "Could not load texture replacement: %s - %s", filename.c_str(), png.message);
-			vfs_->CloseFile(openFile);
+			vfs_->CloseFile(std::move(openFile));
 			out.resize(0);
 			return LoadLevelResult::LOAD_ERROR;
 		}
@@ -701,7 +702,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		return LoadLevelResult::CONTINUE;
 	} else {
 		WARN_LOG(Log::TexReplacement, "Don't know how to load this image type! %d", (int)imageType);
-		vfs_->CloseFile(openFile);
+		vfs_->CloseFile(std::move(openFile));
 	}
 	return LoadLevelResult::LOAD_ERROR;
 }
