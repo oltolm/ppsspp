@@ -1,4 +1,5 @@
 #include <cstring>
+#include <memory>
 
 #include "Common/Log.h"
 #include "Common/File/VFS/VFS.h"
@@ -8,19 +9,16 @@
 
 VFS g_VFS;
 
-void VFS::Register(const char *prefix, VFSBackend *reader) {
+void VFS::Register(const char *prefix, std::unique_ptr<VFSBackend> reader) {
 	if (reader) {
-		entries_.push_back(VFSEntry{ prefix, reader });
-		DEBUG_LOG(IO, "Registered VFS for prefix %s: %s", prefix, reader->toString().c_str());
+		entries_.push_back(VFSEntry{ prefix, std::move(reader) });
+		DEBUG_LOG(IO, "Registered VFS for prefix %s: %s", prefix, entries_.back().reader->toString().c_str());
 	} else {
 		ERROR_LOG(IO, "Trying to register null VFS backend for prefix %s", prefix);
 	}
 }
 
 void VFS::Clear() {
-	for (auto &entry : entries_) {
-		delete entry.reader;
-	}
 	entries_.clear();
 }
 
