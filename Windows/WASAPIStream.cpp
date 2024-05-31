@@ -254,7 +254,7 @@ private:
 	ComPtr<CMMNotificationClient> notificationClient_;
 	WAVEFORMATEXTENSIBLE *deviceFormat_ = nullptr;
 	ComPtr<IAudioRenderClient> renderClient_;
-	int16_t *shortBuf_ = nullptr;
+	std::unique_ptr<int16_t[]>shortBuf_;
 
 	enum class Format {
 		UNKNOWN = 0,
@@ -268,8 +268,6 @@ private:
 };
 
 WASAPIAudioThread::~WASAPIAudioThread() {
-	delete [] shortBuf_;
-	shortBuf_ = nullptr;
 	ShutdownAudioDevice();
 	if (notificationClient_ && deviceEnumerator_)
 		deviceEnumerator_->UnregisterEndpointNotificationCallback(notificationClient_.Get());
@@ -414,7 +412,6 @@ bool WASAPIAudioThread::ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt) {
 }
 
 bool WASAPIAudioThread::PrepareFormat() {
-	delete [] shortBuf_;
 	shortBuf_ = nullptr;
 
 	BYTE *pData = nullptr;
@@ -426,7 +423,7 @@ bool WASAPIAudioThread::PrepareFormat() {
 	if (format_ == Format::IEEE_FLOAT) {
 		memset(pData, 0, sizeof(float) * numSamples);
 		// This buffer is always stereo - PPSSPP writes to it.
-		shortBuf_ = new short[numBufferFrames * 2];
+		shortBuf_ = std::make_unique<short[]>(numBufferFrames * 2);
 	} else if (format_ == Format::PCM16) {
 		memset(pData, 0, sizeof(short) * numSamples);
 	}
@@ -498,7 +495,7 @@ void WASAPIAudioThread::Run() {
 			int chans = deviceFormat_->Format.nChannels;
 			switch (format_) {
 			case Format::IEEE_FLOAT:
-				callback_(shortBuf_, pNumAvFrames, sampleRate_);
+				callback_(shortBuf_.get(), pNumAvFrames, sampleRate_);
 				if (chans == 1) {
 					float *ptr = (float *)pData;
 					memset(ptr, 0, pNumAvFrames * chans * sizeof(float));
@@ -506,7 +503,7 @@ void WASAPIAudioThread::Run() {
 						ptr[i * chans + 0] = 0.5f * ((float)shortBuf_[i * 2] + (float)shortBuf_[i * 2 + 1]) * (1.0f / 32768.0f);
 					}
 				} else if (chans == 2) {
-					ConvertS16ToF32((float *)pData, shortBuf_, pNumAvFrames * chans);
+					ConvertS16ToF32((float *)pData, shortBuf_.get(), pNumAvFrames * chans);
 				} else if (chans > 2) {
 					float *ptr = (float *)pData;
 					memset(ptr, 0, pNumAvFrames * chans * sizeof(float));
