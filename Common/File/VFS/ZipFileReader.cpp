@@ -1,5 +1,7 @@
+#include "File/VFS/VFS.h"
 #include <algorithm>
 #include <ctype.h>
+#include <memory>
 #include <set>
 #include <cstdio>
 #include <cstring>
@@ -228,14 +230,14 @@ public:
 	zip_file_t *zf = nullptr;
 };
 
-VFSFileReference *ZipFileReader::GetFile(const char *path) {
+std::unique_ptr<VFSFileReference> ZipFileReader::GetFile(const char *path) {
 	std::lock_guard<std::mutex> guard(lock_);
 	int zi = zip_name_locate(zip_file_, path, ZIP_FL_NOCASE);
 	if (zi < 0) {
 		// Not found.
 		return nullptr;
 	}
-	ZipFileReaderFileReference *ref = new ZipFileReaderFileReference();
+	auto ref = std::make_unique<ZipFileReaderFileReference>();
 	ref->zi = zi;
 	return ref;
 }
@@ -255,15 +257,13 @@ bool ZipFileReader::GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *
 	return zstat.size;
 }
 
-void ZipFileReader::ReleaseFile(VFSFileReference *vfsReference) {
-	ZipFileReaderFileReference *reference = (ZipFileReaderFileReference *)vfsReference;
+void ZipFileReader::ReleaseFile(std::unique_ptr<VFSFileReference> vfsReference) {
 	// Don't do anything other than deleting it.
-	delete reference;
 }
 
-VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size_t *size) {
+std::unique_ptr<VFSOpenFile> ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size_t *size) {
 	ZipFileReaderFileReference *reference = (ZipFileReaderFileReference *)vfsReference;
-	ZipFileReaderOpenFile *openFile = new ZipFileReaderOpenFile();
+	auto openFile = std::make_unique<ZipFileReaderOpenFile>();
 	openFile->reference = reference;
 	*size = 0;
 	// We only allow one file to be open for read concurrently. It's possible that this can be improved,
@@ -272,7 +272,6 @@ VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size
 	zip_stat_t zstat;
 	if (zip_stat_index(zip_file_, reference->zi, 0, &zstat) != 0) {
 		lock_.unlock();
-		delete openFile;
 		return nullptr;
 	}
 
@@ -280,7 +279,6 @@ VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size
 	if (!openFile->zf) {
 		WARN_LOG(Log::G3D, "File with index %d not found in zip", reference->zi);
 		lock_.unlock();
-		delete openFile;
 		return nullptr;
 	}
 
@@ -301,11 +299,10 @@ size_t ZipFileReader::Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length
 	return zip_fread(file->zf, buffer, length);
 }
 
-void ZipFileReader::CloseFile(VFSOpenFile *vfsOpenFile) {
-	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)vfsOpenFile;
+void ZipFileReader::CloseFile(std::unique_ptr<VFSOpenFile> vfsOpenFile) {
+	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)vfsOpenFile.get();
 	_dbg_assert_(file->zf != nullptr);
 	zip_fclose(file->zf);
 	file->zf = nullptr;
 	lock_.unlock();
-	delete file;
 }
