@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <memory>
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
@@ -40,16 +41,12 @@
 
 #define TRANSFORM_BUF_SIZE (65536 * 48)
 
-TransformUnit::TransformUnit() {
-	decoded_ = (u8 *)AllocateAlignedMemory(TRANSFORM_BUF_SIZE, 16);
-	if (!decoded_)
-		return;
-	binner_ = new BinManager();
-}
-
-TransformUnit::~TransformUnit() {
-	FreeAlignedMemory(decoded_);
-	delete binner_;
+TransformUnit::TransformUnit()
+    : decoded_((u8 *)AllocateAlignedMemory(TRANSFORM_BUF_SIZE, 16),
+               &FreeAlignedMemory) {
+  if (!decoded_)
+    return;
+  binner_ = std::make_unique<BinManager>();
 }
 
 bool TransformUnit::IsStarted() {
@@ -566,7 +563,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		return;
 
 	static TransformState transformState;
-	SoftwareVertexReader vreader(decoded_, vdecoder, vertex_type, vertex_count, vertices, indices, transformState, *this);
+	SoftwareVertexReader vreader(decoded_.get(), vdecoder, vertex_type, vertex_count, vertices, indices, transformState, *this);
 
 	if (prim_type != GE_PRIM_KEEP_PREVIOUS) {
 		data_index_ = 0;
