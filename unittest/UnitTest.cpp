@@ -38,6 +38,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <memory>
 #include <vector>
 #include <string>
 #include <sstream>
@@ -427,7 +428,7 @@ bool TestVFPUSinCos() {
 	float sine, cosine;
 	// Needed for VFPU tables.
 	// There might be a better place to invoke it, but whatever.
-	g_VFS.Register("", new DirectoryReader(Path("assets")));
+	g_VFS.Register("", std::make_unique<DirectoryReader>(Path("assets")));
 	InitVFPU();
 	vfpu_sincos(0.0f, sine, cosine);
 	EXPECT_EQ_FLOAT(sine, 0.0f);
