@@ -68,7 +68,7 @@ public:
 class VFS : public VFSInterface {
 public:
 	~VFS() { Clear(); }
-	void Register(const char *prefix, VFSBackend *reader);
+	void Register(const char *prefix, std::unique_ptr<VFSBackend> reader);
 	void Clear();
 
 	// Use delete [] to release the returned memory.
@@ -83,7 +83,7 @@ public:
 private:
 	struct VFSEntry {
 		const char *prefix;
-		VFSBackend *reader;
+		std::unique_ptr<VFSBackend> reader;
 	};
 	std::vector<VFSEntry> entries_;
 };
