@@ -27,6 +27,7 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "ppsspp_config.h"
 
+#include <memory>
 #include <mmsystem.h>
 #include <shellapi.h>
 #include <Wbemidl.h>
@@ -915,8 +916,8 @@ int WINAPI wWinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPWSTR szCmdL
 #endif
 
 	const Path &exePath = File::GetExeDirectory();
-	g_VFS.Register("", new DirectoryReader(exePath / "assets"));
-	g_VFS.Register("", new DirectoryReader(exePath));
+	g_VFS.Register("", std::make_unique<DirectoryReader>(exePath / "assets"));
+	g_VFS.Register("", std::make_unique<DirectoryReader>(exePath));
 
 	langRegion = GetDefaultLangRegion();
 	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
