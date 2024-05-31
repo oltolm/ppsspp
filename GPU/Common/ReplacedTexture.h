@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <string>
 
@@ -106,7 +107,7 @@ struct ReplacedTextureLevel {
 
 	// To be able to reload, we need to be able to reopen, unfortunate we can't use zip_file_t.
 	// TODO: This really belongs on the level in the cache, not in the individual ReplacedTextureLevel objects.
-	VFSFileReference *fileRef = nullptr;
+	std::unique_ptr<VFSFileReference> fileRef;
 };
 
 class ReplacedTexture {
@@ -186,7 +187,7 @@ private:
 	};
 
 	void Prepare(VFSBackend *vfs);
-	LoadLevelResult LoadLevelData(VFSFileReference *fileRef, const std::string &filename, int level, Draw::DataFormat *pixelFormat);
+	LoadLevelResult LoadLevelData(std::unique_ptr<VFSFileReference> fileRef, const std::string &filename, int level, Draw::DataFormat *pixelFormat);
 	void PurgeIfNotUsedSinceTime(double t);
 
 	std::vector<std::vector<uint8_t>> data_;

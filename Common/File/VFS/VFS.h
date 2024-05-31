@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <cstdint>
 
@@ -43,16 +44,16 @@ public:
 
 class VFSBackend : public VFSInterface {
 public:
-	virtual VFSFileReference *GetFile(const char *path) = 0;
+	virtual std::unique_ptr<VFSFileReference> GetFile(const char *path) = 0;
 	virtual bool GetFileInfo(VFSFileReference *vfsReference, File::FileInfo *fileInfo) = 0;
-	virtual void ReleaseFile(VFSFileReference *vfsReference) = 0;
+	virtual void ReleaseFile(std::unique_ptr<VFSFileReference> vfsReference) = 0;
 
 	// Must write the size of the file to *size. Both backends can do this efficiently here,
 	// avoiding a call to GetFileInfo.
-	virtual VFSOpenFile *OpenFileForRead(VFSFileReference *vfsReference, size_t *size) = 0;
+	virtual std::unique_ptr<VFSOpenFile> OpenFileForRead(VFSFileReference *vfsReference, size_t *size) = 0;
 	virtual void Rewind(VFSOpenFile *vfsOpenFile) = 0;
 	virtual size_t Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) = 0;
-	virtual void CloseFile(VFSOpenFile *vfsOpenFile) = 0;
+	virtual void CloseFile(std::unique_ptr<VFSOpenFile> vfsOpenFile) = 0;
 
 	// Filter support is optional but nice to have
 	virtual bool GetFileInfo(const char *path, File::FileInfo *info) = 0;
