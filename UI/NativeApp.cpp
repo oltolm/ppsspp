@@ -386,7 +386,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_VFS.Register("", new DirectoryReader(Path(external_dir)));
 #endif
 #if defined(ASSETS_DIR)
-	g_VFS.Register("", new DirectoryReader(Path(ASSETS_DIR)));
+	g_VFS.Register("", std::make_unique<DirectoryReader>(Path(ASSETS_DIR)));
 #endif
 #if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
 	g_VFS.Register("", new DirectoryReader(File::GetExeDirectory() / "assets"));
@@ -401,9 +401,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	Path assetPath = Path(user_data_path) / "assets";
 	g_VFS.Register("", new DirectoryReader(assetPath));
 #else
-	g_VFS.Register("", new DirectoryReader(Path("assets")));
+	g_VFS.Register("", std::make_unique<DirectoryReader>(Path("assets")));
 #endif
-	g_VFS.Register("", new DirectoryReader(Path(savegame_dir)));
+	g_VFS.Register("", std::make_unique<DirectoryReader>(Path(savegame_dir)));
 
 #if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)
 	g_Config.defaultCurrentDirectory = Path(System_GetProperty(SYSPROP_USER_DOCUMENTS_DIR));
