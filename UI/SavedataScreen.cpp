@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Render/DrawBuffer.h"
@@ -686,11 +687,11 @@ UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
 		return UI::EVENT_DONE;
 	}
-	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(Path(e.s), ginfo->GetTitle());
+	auto popupScreen = std::make_unique<SavedataPopupScreen>(Path(e.s), ginfo->GetTitle());
 	if (e.v) {
 		popupScreen->SetPopupOrigin(e.v);
 	}
-	screenManager()->push(popupScreen);
+	screenManager()->push(std::move(popupScreen));
 	// the game path: e.s;
 	return UI::EVENT_DONE;
 }
