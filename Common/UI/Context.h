@@ -72,7 +72,7 @@ public:
 	DrawBuffer *Draw() const { return uidrawbuffer_; }
 
 	// Utility methods
-	TextDrawer *Text() const { return textDrawer_; }
+	TextDrawer *Text() const { return textDrawer_.get(); }
 
 	void SetTintSaturation(float tint, float sat);
 
@@ -123,8 +123,8 @@ private:
 
 	float fontScaleX_ = 1.0f;
 	float fontScaleY_ = 1.0f;
-	UI::FontStyle *fontStyle_ = nullptr;
-	TextDrawer *textDrawer_ = nullptr;
+	std::unique_ptr<UI::FontStyle> fontStyle_;
+	std::unique_ptr<TextDrawer> textDrawer_;
 
 	Draw::SamplerState *sampler_ = nullptr;
 	Draw::Pipeline *ui_pipeline_ = nullptr;

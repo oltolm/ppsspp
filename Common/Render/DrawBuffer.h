@@ -2,6 +2,7 @@
 
 // "Immediate mode"-lookalike buffered drawing. Very fast way to draw 2D.
 
+#include <memory>
 #include <vector>
 #include <cstdint>
 
@@ -51,7 +52,7 @@ class TextDrawer;
 class DrawBuffer {
 public:
 	DrawBuffer();
-	~DrawBuffer();
+	~DrawBuffer() = default;
 
 	void Begin(Draw::Pipeline *pipeline);
 	void Flush(bool set_blend_state = true);
@@ -195,7 +196,7 @@ private:
 	Draw::DrawContext *draw_ = nullptr;
 	Draw::Pipeline *pipeline_ = nullptr;
 
-	Vertex *verts_;
+	std::unique_ptr<Vertex[]> verts_;
 	int count_ = 0;
 	const Atlas *atlas = nullptr;
 	const Atlas *fontAtlas_ = nullptr;

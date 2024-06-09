@@ -470,7 +470,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(std::unique_ptr<
 		std::vector<uint8_t> buffer;
 		buffer.resize(fileSize);
 		buffer.resize(vfs_->Read(openFile.get(), &buffer[0], buffer.size()));
-		vfs_->CloseFile(openFile);
+		vfs_->CloseFile(std::move(openFile));
 
 		basist::ktx2_transcoder transcoder;
 		if (!transcoder.init(buffer.data(), (int)buffer.size())) {
@@ -620,7 +620,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(std::unique_ptr<
 			vfs_->CloseFile(std::move(openFile));
 			return LoadLevelResult::LOAD_ERROR;
 		}
-		vfs_->CloseFile(openFile);
+		vfs_->CloseFile(std::move(openFile));
 
 		int w, h, f;
 		uint8_t *image;
@@ -660,7 +660,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(std::unique_ptr<
 		std::string pngdata;
 		pngdata.resize(fileSize);
 		pngdata.resize(vfs_->Read(openFile.get(), &pngdata[0], fileSize));
-		vfs_->CloseFile(openFile);
+		vfs_->CloseFile(std::move(openFile));
 		if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
 			ERROR_LOG(Log::TexReplacement, "Could not load texture replacement info: %s - %s (zip)", filename.c_str(), png.message);
 			return LoadLevelResult::LOAD_ERROR;
@@ -699,7 +699,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(std::unique_ptr<
 			}
 		}
 
-		levels_.push_back(level);
+		levels_.push_back(std::move(level));
 		return LoadLevelResult::CONTINUE;
 	} else {
 		WARN_LOG(Log::TexReplacement, "Don't know how to load this image type! %d", (int)imageType);

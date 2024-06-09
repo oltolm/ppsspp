@@ -28,6 +28,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include <memory>
 
 #include "UI/CustomButtonMappingScreen.h"
 
@@ -121,7 +122,7 @@ void CustomButtonMappingScreen::CreateViews() {
 	using namespace CustomKeyData;
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
-	root_ = new LinearLayout(ORIENT_VERTICAL);
+	root_.reset(new LinearLayout(ORIENT_VERTICAL));
 	root_->Add(new ItemHeader(co->T("Custom Key Setting")));
 	LinearLayout *root__ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0));
 	root_->Add(root__);
@@ -154,22 +155,22 @@ void CustomButtonMappingScreen::CreateViews() {
 	Choice *icon = vertLayout->Add(new Choice(co->T("Icon")));
 	icon->SetIcon(ImageID(customKeyImages[cfg->image].i), 1.0f, customKeyImages[cfg->image].r*PI/180, false, false); // Set right icon on the choice
 	icon->OnClick.Add([=](UI::EventParams &e) {
-		auto iconScreen = new ButtonIconScreen(co->T("Icon"), &(cfg->image));
+		auto iconScreen = std::make_unique<ButtonIconScreen>(co->T("Icon"), &(cfg->image));
 		if (e.v)
 			iconScreen->SetPopupOrigin(e.v);
 
-		screenManager()->push(iconScreen);
+		screenManager()->push(std::move(iconScreen));
 		return UI::EVENT_DONE;
 	});
 
 	Choice *shape = vertLayout->Add(new Choice(co->T("Shape")));
 	shape->SetIcon(ImageID(customKeyShapes[cfg->shape].l), 0.6f, customKeyShapes[cfg->shape].r*PI/180, customKeyShapes[cfg->shape].f, false); // Set right icon on the choice
 	shape->OnClick.Add([=](UI::EventParams &e) {
-		auto shape = new ButtonShapeScreen(co->T("Shape"), &(cfg->shape));
+		auto shape = std::make_unique<ButtonShapeScreen>(co->T("Shape"), &(cfg->shape));
 		if (e.v)
 			shape->SetPopupOrigin(e.v);
 
-		screenManager()->push(shape);
+		screenManager()->push(std::move(shape));
 		return UI::EVENT_DONE;
 	});
 

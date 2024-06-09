@@ -525,7 +525,7 @@ bool OSDOverlayScreen::UnsyncTouch(const TouchInput &touch) {
 }
 
 void OSDOverlayScreen::CreateViews() {
-	root_ = new UI::AnchorLayout();
+	root_.reset(new UI::AnchorLayout());
 	root_->SetTag("OSDOverlayScreen");
 	osmView_ = root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams(0.0f, 0.0f, 0.0f, 0.0f)));
 }
