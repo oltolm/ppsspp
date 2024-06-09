@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 
 #include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Context.h"
@@ -44,7 +45,6 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/HLE/sceUtility.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/PostShader.h"
@@ -410,22 +410,22 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 		currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 	} else if (message == UIMessage::SHOW_CONTROL_MAPPING && isActiveScreen && std::string(activeScreen->tag()) != "ControlMapping") {
 		UpdateUIState(UISTATE_MENU);
-		manager->push(new ControlMappingScreen(Path()));
+		manager->push(std::make_unique<ControlMappingScreen>(Path()));
 	} else if (message == UIMessage::SHOW_DISPLAY_LAYOUT_EDITOR && isActiveScreen && std::string(activeScreen->tag()) != "DisplayLayout") {
 		UpdateUIState(UISTATE_MENU);
-		manager->push(new DisplayLayoutScreen(Path()));
+		manager->push(std::make_unique<DisplayLayoutScreen>(Path()));
 	} else if (message == UIMessage::SHOW_SETTINGS && isActiveScreen && std::string(activeScreen->tag()) != "GameSettings") {
 		UpdateUIState(UISTATE_MENU);
-		manager->push(new GameSettingsScreen(Path()));
+		manager->push(std::make_unique<GameSettingsScreen>(Path()));
 	} else if (message == UIMessage::SHOW_LANGUAGE_SCREEN && isActiveScreen) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		auto langScreen = new NewLanguageScreen(sy->T("Language"));
+		auto langScreen = std::make_unique<NewLanguageScreen>(sy->T("Language"));
 		langScreen->OnChoice.Add([](UI::EventParams &) {
 			System_PostUIMessage(UIMessage::RECREATE_VIEWS);
 			System_Notify(SystemNotification::UI);
 			return UI::EVENT_DONE;
 		});
-		manager->push(langScreen);
+		manager->push(std::move(langScreen));
 	} else if (message == UIMessage::WINDOW_MINIMIZED) {
 		if (!strcmp(value, "true")) {
 			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
@@ -479,7 +479,7 @@ void BackgroundScreen::sendMessage(UIMessage message, const char *value) {
 
 void UIScreenWithGameBackground::sendMessage(UIMessage message, const char *value) {
 	if (message == UIMessage::SHOW_SETTINGS && screenManager()->topScreen() == this) {
-		screenManager()->push(new GameSettingsScreen(gamePath_));
+		screenManager()->push(std::make_unique<GameSettingsScreen>(gamePath_));
 	} else {
 		UIScreenWithBackground::sendMessage(message, value);
 	}
@@ -487,7 +487,7 @@ void UIScreenWithGameBackground::sendMessage(UIMessage message, const char *valu
 
 void UIDialogScreenWithGameBackground::sendMessage(UIMessage message, const char *value) {
 	if (message == UIMessage::SHOW_SETTINGS && screenManager()->topScreen() == this) {
-		screenManager()->push(new GameSettingsScreen(gamePath_));
+		screenManager()->push(std::make_unique<GameSettingsScreen>(gamePath_));
 	} else {
 		UIDialogScreenWithBackground::sendMessage(message, value);
 	}
@@ -520,7 +520,7 @@ void PromptScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	root_ = new AnchorLayout();
+	root_.reset(new AnchorLayout());
 
 	root_->Add(new TextView(message_, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 15, 15, 330, 10)))->SetClip(false);
 
@@ -682,21 +682,21 @@ void LogoScreen::Next() {
 		switch (afterLogoScreen_) {
 		case AfterLogoScreen::TO_GAME_SETTINGS:
 			if (!gamePath.empty()) {
-				screenManager()->switchScreen(new EmuScreen(gamePath));
+				screenManager()->switchScreen(std::make_unique<EmuScreen>(gamePath));
 			} else {
-				screenManager()->switchScreen(new MainScreen());
+				screenManager()->switchScreen(std::make_unique<MainScreen>());
 			}
-			screenManager()->push(new GameSettingsScreen(gamePath));
+			screenManager()->push(std::make_unique<GameSettingsScreen>(gamePath));
 			break;
 		case AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP:
-			screenManager()->switchScreen(new MemStickScreen(true));
+			screenManager()->switchScreen(std::make_unique<MemStickScreen>(true));
 			break;
 		case AfterLogoScreen::DEFAULT:
 		default:
 			if (boot_filename.size()) {
-				screenManager()->switchScreen(new EmuScreen(gamePath));
+				screenManager()->switchScreen(std::make_unique<EmuScreen>(gamePath));
 			} else {
-				screenManager()->switchScreen(new MainScreen());
+				screenManager()->switchScreen(std::make_unique<MainScreen>());
 			}
 			break;
 		}
@@ -722,7 +722,7 @@ void LogoScreen::update() {
 
 void LogoScreen::sendMessage(UIMessage message, const char *value) {
 	if (message == UIMessage::REQUEST_GAME_BOOT && screenManager()->topScreen() == this) {
-		screenManager()->switchScreen(new EmuScreen(Path(value)));
+		screenManager()->switchScreen(std::make_unique<EmuScreen>(Path(value)));
 	}
 }
 
@@ -797,7 +797,7 @@ void CreditsScreen::CreateViews() {
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_.reset(new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 	root_->SetDefaultFocusView(back);

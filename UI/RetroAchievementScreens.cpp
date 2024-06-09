@@ -12,6 +12,7 @@
 #include "UI/RetroAchievementScreens.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
+#include <memory>
 
 static inline std::string_view DeNull(const char *ptr) {
 	return std::string_view(ptr ? ptr : "");
@@ -144,7 +145,7 @@ void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup
 	for (auto &leaderboard : leaderboards) {
 		int leaderboardID = leaderboard->id;
 		viewGroup->Add(new LeaderboardSummaryView(leaderboard))->OnClick.Add([=](UI::EventParams &e) -> UI::EventReturn {
-			screenManager()->push(new RetroAchievementsLeaderboardScreen(gamePath_, leaderboardID));
+			screenManager()->push(std::make_unique<RetroAchievementsLeaderboardScreen>(gamePath_, leaderboardID));
 			return UI::EVENT_DONE;
 		});
 	}

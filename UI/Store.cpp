@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <functional>
+#include <memory>
 
 #include "Common/UI/Screen.h"
 #include "Common/UI/Context.h"
@@ -514,7 +515,7 @@ void StoreScreen::ParseListing(const std::string &json) {
 void StoreScreen::CreateViews() {
 	using namespace UI;
 
-	root_ = new LinearLayout(ORIENT_VERTICAL);
+	root_.reset(new LinearLayout(ORIENT_VERTICAL));
 	
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
@@ -603,7 +604,7 @@ UI::EventReturn StoreScreen::OnGameSelected(UI::EventParams &e) {
 
 UI::EventReturn StoreScreen::OnGameLaunch(UI::EventParams &e) {
 	std::string path = e.s;
-	screenManager()->switchScreen(new EmuScreen(Path(path)));
+	screenManager()->switchScreen(std::make_unique<EmuScreen>(Path(path)));
 	return UI::EVENT_DONE;
 }
 

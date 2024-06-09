@@ -55,8 +55,7 @@ struct TextDrawerContext {
 	int *pBitmapBits;
 };
 
-TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(nullptr) {
-	ctx_ = new TextDrawerContext();
+TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(new TextDrawerContext()) {
 	ctx_->hDC = CreateCompatibleDC(NULL);
 
 	BITMAPINFO bmi;
@@ -81,7 +80,6 @@ TextDrawerWin32::~TextDrawerWin32() {
 
 	DeleteObject(ctx_->hbmBitmap);
 	DeleteDC(ctx_->hDC);
-	delete ctx_;
 }
 
 uint32_t TextDrawerWin32::SetFont(const char *fontName, int size, int flags) {

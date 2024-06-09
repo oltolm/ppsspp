@@ -12,17 +12,13 @@
 #include "Common/Render/ManagedTexture.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
-#include "Common/LogReporting.h"
 
-UIContext::UIContext() {
-	fontStyle_ = new UI::FontStyle();
-	bounds_ = Bounds(0, 0, g_display.dp_xres, g_display.dp_yres);
+UIContext::UIContext() : fontStyle_(new UI::FontStyle()) {
+  bounds_ = Bounds(0, 0, g_display.dp_xres, g_display.dp_yres);
 }
 
 UIContext::~UIContext() {
 	sampler_->Release();
-	delete fontStyle_;
-	delete textDrawer_;
 	if (uitexture_)
 		uitexture_->Release();
 	if (fontTexture_)
@@ -36,7 +32,7 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 	ui_pipeline_ = uipipe;
 	ui_pipeline_notex_ = uipipenotex;
 	uidrawbuffer_ = uidrawbuffer;
-	textDrawer_ = TextDrawer::Create(thin3d);  // May return nullptr if no implementation is available for this platform.
+	textDrawer_.reset(TextDrawer::Create(thin3d));  // May return nullptr if no implementation is available for this platform.
 }
 
 void UIContext::setUIAtlas(const std::string &name) {

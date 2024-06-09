@@ -299,7 +299,7 @@ void GPUDriverTestScreen::CreateViews() {
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 
 	AnchorLayout *anchor = new AnchorLayout();
-	root_ = anchor;
+	root_.reset(anchor);
 
 	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 30.0f, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, false));
 	anchor->Add(tabHolder_);

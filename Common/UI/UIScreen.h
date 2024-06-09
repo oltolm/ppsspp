@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <string>
 #include <deque>
@@ -33,7 +34,7 @@ struct QueuedEvent {
 class UIScreen : public Screen {
 public:
 	UIScreen();
-	~UIScreen();
+	~UIScreen() = default;
 
 	void update() override;
 	ScreenRenderFlags render(ScreenRenderMode mode) override;
@@ -63,7 +64,7 @@ protected:
 	void RecreateViews() override { recreateViews_ = true; }
 	bool UseVerticalLayout() const;
 
-	UI::ViewGroup *root_ = nullptr;
+	std::unique_ptr<UI::ViewGroup> root_;
 	Vec3 translation_ = Vec3(0.0f);
 	Vec3 scale_ = Vec3(1.0f);
 	float alpha_ = 1.0f;
