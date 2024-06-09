@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 
 using namespace std::placeholders;
 
@@ -216,7 +217,7 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 
 	case PERMISSION_STATUS_DENIED:
 		stopRender_ = true;
-		screenManager()->switchScreen(new MainScreen());
+		screenManager()->switchScreen(std::make_unique<MainScreen>());
 		return false;
 
 	case PERMISSION_STATUS_PENDING:
@@ -477,7 +478,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by System_PostUIMessage.
 	if (result == DR_OK || quit_) {
-		screenManager()->switchScreen(new MainScreen());
+		screenManager()->switchScreen(std::make_unique<MainScreen>());
 		quit_ = false;
 	}
 	// Returning to the PauseScreen, unless we're stepping, means we should go back to controls.
@@ -521,7 +522,7 @@ void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
 void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	// External commands, like from the Windows UI.
 	if (message == UIMessage::REQUEST_GAME_PAUSE && screenManager()->topScreen() == this) {
-		screenManager()->push(new GamePauseScreen(gamePath_));
+		screenManager()->push(std::make_unique<GamePauseScreen>(gamePath_));
 	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
 		PSP_Shutdown();
@@ -539,7 +540,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		if (!PSP_InitStart(PSP_CoreParameter(), &resetError)) {
 			ERROR_LOG(Log::Loader, "Error resetting: %s", resetError.c_str());
 			stopRender_ = true;
-			screenManager()->switchScreen(new MainScreen());
+			screenManager()->switchScreen(std::make_unique<MainScreen>());
 			return;
 		}
 	} else if (message == UIMessage::REQUEST_GAME_BOOT) {
@@ -563,13 +564,13 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		RecreateViews();
 	} else if (message == UIMessage::SHOW_CONTROL_MAPPING && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
-		screenManager()->push(new ControlMappingScreen(gamePath_));
+		screenManager()->push(std::make_unique<ControlMappingScreen>(gamePath_));
 	} else if (message == UIMessage::SHOW_DISPLAY_LAYOUT_EDITOR && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
-		screenManager()->push(new DisplayLayoutScreen(gamePath_));
+		screenManager()->push(std::make_unique<DisplayLayoutScreen>(gamePath_));
 	} else if (message == UIMessage::SHOW_SETTINGS && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
-		screenManager()->push(new GameSettingsScreen(gamePath_));
+		screenManager()->push(std::make_unique<GameSettingsScreen>(gamePath_));
 	} else if (message == UIMessage::REQUEST_GPU_DUMP_NEXT_FRAME) {
 		if (gpu)
 			gpu->DumpNextFrame();
@@ -609,7 +610,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 				// If it's a TV (so no built-in back button), and there's no back button mapped to a pad,
 				// use this as the fallback way to get into the menu.
 
-				screenManager()->push(new GamePauseScreen(gamePath_));
+				screenManager()->push(std::make_unique<GamePauseScreen>(gamePath_));
 			}
 		}
 	} else if (message == UIMessage::REQUEST_PLAY_SOUND) {
@@ -1030,7 +1031,7 @@ void EmuScreen::CreateViews() {
 	// Devices without a back button like iOS need an on-screen touch back button.
 	bool showPauseButton = !System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause;
 
-	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_, showPauseButton, &controlMapper_);
+	root_.reset(CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_, showPauseButton, &controlMapper_));
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
@@ -1137,10 +1138,10 @@ void EmuScreen::CreateViews() {
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
-	DevMenuScreen *devMenu = new DevMenuScreen(gamePath_, I18NCat::DEVELOPER);
+	auto devMenu = std::make_unique<DevMenuScreen>(gamePath_, I18NCat::DEVELOPER);
 	if (params.v)
 		devMenu->SetPopupOrigin(params.v);
-	screenManager()->push(devMenu);
+	screenManager()->push(std::move(devMenu));
 	return UI::EVENT_DONE;
 }
 
@@ -1225,7 +1226,7 @@ void EmuScreen::update() {
 		errLoadingFile.append(" ");
 		errLoadingFile.append(err->T(errorMessage_.c_str()));
 
-		screenManager()->push(new PromptScreen(gamePath_, errLoadingFile, "OK", ""));
+		screenManager()->push(std::make_unique<PromptScreen>(gamePath_, errLoadingFile, "OK", ""));
 		errorMessage_.clear();
 		quit_ = true;
 		return;
@@ -1233,7 +1234,7 @@ void EmuScreen::update() {
 
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
-		screenManager()->push(new GamePauseScreen(gamePath_));
+		screenManager()->push(std::make_unique<GamePauseScreen>(gamePath_));
 	}
 
 	if (invalid_)
@@ -1285,7 +1286,7 @@ bool EmuScreen::checkPowerDown() {
 			PSP_Shutdown();
 		}
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");
-		screenManager()->switchScreen(new MainScreen());
+		screenManager()->switchScreen(std::make_unique<MainScreen>());
 		bootPending_ = false;
 		invalid_ = true;
 		return true;
@@ -1586,7 +1587,7 @@ void EmuScreen::renderUI() {
 	thin3d->SetViewport(viewport);
 
 	if (root_) {
-		UI::LayoutViewHierarchy(*ctx, root_, false);
+		UI::LayoutViewHierarchy(*ctx, root_.get(), false);
 		root_->Draw(*ctx);
 	}
 

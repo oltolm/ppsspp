@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <sstream>
 
 #include "ppsspp_config.h"
@@ -85,11 +86,11 @@ bool LaunchFile(ScreenManager *screenManager, const Path &path) {
 
 	switch (type) {
 	case IdentifiedFileType::ARCHIVE_ZIP:
-		screenManager->push(new InstallZipScreen(path));
+		screenManager->push(std::make_unique<InstallZipScreen>(path));
 		break;
 	default:
 		// Let the EmuScreen take care of it.
-		screenManager->switchScreen(new EmuScreen(path));
+		screenManager->switchScreen(std::make_unique<EmuScreen>(path));
 		break;
 	}
 	return true;
@@ -1060,12 +1061,12 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::GridSettingsClick(UI::EventParams &e) {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	auto gridSettings = new GridSettingsScreen(sy->T("Games list settings"));
+	auto gridSettings = std::make_unique<GridSettingsScreen>(sy->T("Games list settings"));
 	gridSettings->OnRecentChanged.Handle(this, &GameBrowser::OnRecentClear);
 	if (e.v)
 		gridSettings->SetPopupOrigin(e.v);
 
-	screenManager_->push(gridSettings);
+	screenManager_->push(std::move(gridSettings));
 	return UI::EVENT_DONE;
 }
 
@@ -1076,7 +1077,7 @@ UI::EventReturn GameBrowser::OnRecentClear(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::OnHomebrewStore(UI::EventParams &e) {
-	screenManager_->push(new StoreScreen());
+	screenManager_->push(std::make_unique<StoreScreen>());
 	return UI::EVENT_DONE;
 }
 
@@ -1304,14 +1305,14 @@ void MainScreen::CreateViews() {
 #endif
 
 	if (vertical) {
-		root_ = new LinearLayout(ORIENT_VERTICAL);
+		root_.reset(new LinearLayout(ORIENT_VERTICAL));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0f));
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
 		Margins actionMenuMargins(0, 10, 10, 0);
-		root_ = new LinearLayout(ORIENT_HORIZONTAL);
+		root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 		root_->Add(leftColumn);
 		root_->Add(rightColumn);
@@ -1344,10 +1345,10 @@ void MainScreen::CreateViews() {
 
 		// Slip in under root_
 		LinearLayout *newRoot = new LinearLayout(ORIENT_VERTICAL);
-		newRoot->Add(root_);
+		newRoot->Add(root_.get());
 		newRoot->Add(upgradeBar_);
 		root_->ReplaceLayoutParams(new LinearLayoutParams(1.0));
-		root_ = newRoot;
+		root_.reset(newRoot);
 	}
 }
 
@@ -1509,7 +1510,7 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 	restoreFocusGamePath_ = highlightedGamePath_;
 	g_BackgroundAudio.SetGame(path);
 	lockBackgroundAudio_ = true;
-	screenManager()->push(new GameScreen(path, false));
+	screenManager()->push(std::make_unique<GameScreen>(path, false));
 	return UI::EVENT_DONE;
 }
 
@@ -1550,12 +1551,12 @@ UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(Path(), ""));
+	screenManager()->push(std::make_unique<GameSettingsScreen>(Path(), ""));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
-	screenManager()->push(new CreditsScreen());
+	screenManager()->push(std::make_unique<CreditsScreen>());
 	return UI::EVENT_DONE;
 }
 
@@ -1688,7 +1689,7 @@ void UmdReplaceScreen::CreateViews() {
 		leftColumn->SetCurrentTab(1, true);
 	}
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
 }
@@ -1705,7 +1706,7 @@ UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
 }
 
 UI::EventReturn UmdReplaceScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(Path()));
+	screenManager()->push(std::make_unique<GameSettingsScreen>(Path()));
 	return UI::EVENT_DONE;
 }
 

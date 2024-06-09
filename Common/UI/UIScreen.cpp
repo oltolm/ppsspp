@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <memory>
 
 #include "Common/Log.h"
 #include "Common/System/Display.h"
@@ -12,17 +13,13 @@
 #include "Common/UI/Screen.h"
 #include "Common/UI/Root.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Render/DrawBuffer.h"
+#include "Common/GPU/thin3d.h"
 
 static const bool ClickDebug = false;
 
 UIScreen::UIScreen()
 	: Screen() {
 	lastVertical_ = UseVerticalLayout();
-}
-
-UIScreen::~UIScreen() {
-	delete root_;
 }
 
 bool UIScreen::UseVerticalLayout() const {
@@ -39,7 +36,6 @@ void UIScreen::DoRecreateViews() {
 			root_->PersistData(UI::PERSIST_SAVE, "root", persisted);
 		}
 
-		delete root_;
 		root_ = nullptr;
 		CreateViews();
 		UI::View *defaultView = root_ ? root_->GetDefaultFocusView() : nullptr;
@@ -53,7 +49,7 @@ void UIScreen::DoRecreateViews() {
 
 			// Update layout and refocus so things scroll into view.
 			// This is for resizing down, when focused on something now offscreen.
-			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_, ignoreInsets_);
+			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_.get(), ignoreInsets_);
 			UI::View *focused = UI::GetFocusedView();
 			if (focused) {
 				root_->SubviewFocused(focused);
@@ -64,19 +60,19 @@ void UIScreen::DoRecreateViews() {
 
 void UIScreen::touch(const TouchInput &touch) {
 	if (!ignoreInput_ && root_) {
-		UI::TouchEvent(touch, root_);
+		UI::TouchEvent(touch, root_.get());
 	}
 }
 
 void UIScreen::axis(const AxisInput &axis) {
 	if (!ignoreInput_ && root_) {
-		UI::AxisEvent(axis, root_);
+		UI::AxisEvent(axis, root_.get());
 	}
 }
 
 bool UIScreen::key(const KeyInput &key) {
 	if (!ignoreInput_ && root_) {
-		return UI::KeyEvent(key, root_);
+		return UI::KeyEvent(key, root_.get());
 	} else {
 		return false;
 	}
@@ -114,7 +110,7 @@ bool UIScreen::UnsyncKey(const KeyInput &key) {
 	bool retval = false;
 	if (root_) {
 		// TODO: Make key events async too. The return value is troublesome, though.
-		switch (UI::UnsyncKeyEvent(key, root_)) {
+		switch (UI::UnsyncKeyEvent(key, root_.get())) {
 		case UI::KeyEventResult::ACCEPT:
 			retval = true;
 			break;
@@ -144,7 +140,7 @@ void UIScreen::update() {
 	DoRecreateViews();
 
 	if (root_) {
-		UpdateViewHierarchy(root_);
+		UpdateViewHierarchy(root_.get());
 	}
 
 	while (true) {
@@ -221,7 +217,7 @@ ScreenRenderFlags UIScreen::render(ScreenRenderMode mode) {
 
 	UIContext &uiContext = *screenManager()->getUIContext();
 	if (root_) {
-		UI::LayoutViewHierarchy(uiContext, root_, ignoreInsets_);
+		UI::LayoutViewHierarchy(uiContext, root_.get(), ignoreInsets_);
 	}
 
 	uiContext.PushTransform({translation_, scale_, alpha_});
@@ -403,7 +399,7 @@ void PopupScreen::CreateViews() {
 
 	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	anchor->Overflow(false);
-	root_ = anchor;
+	root_.reset(anchor);
 
 	float yres = screenManager()->getUIContext()->GetBounds().h;
 

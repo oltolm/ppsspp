@@ -14,6 +14,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -131,7 +132,7 @@ class ScreenManager {
 public:
 	virtual ~ScreenManager();
 
-	void switchScreen(Screen *screen);
+	void switchScreen(std::unique_ptr<Screen> screen);
 	void update();
 
 	void setUIContext(UIContext *context) { uiContext_ = context; }
@@ -153,7 +154,7 @@ public:
 	void deviceRestored();
 
 	// Push a dialog box in front. Currently 1-level only.
-	void push(Screen *screen, int layerFlags = 0);
+	void push(std::unique_ptr<Screen> screen, int layerFlags = 0);
 
 	// Recreate all views
 	void RecreateAllViews();
@@ -171,16 +172,16 @@ public:
 	void sendMessage(UIMessage message, const char *value);
 
 	const Screen *topScreen() const {
-		return stack_.empty() ? nullptr : stack_.back().screen;
+		return stack_.empty() ? nullptr : stack_.back().screen.get();
 	}
 	Screen *topScreen() {
-		return stack_.empty() ? nullptr : stack_.back().screen;
+		return stack_.empty() ? nullptr : stack_.back().screen.get();
 	}
 
 	void getFocusPosition(float &x, float &y, float &z);
 
 	// Will delete any existing overlay screen.
-	void SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen);
+	void SetBackgroundOverlayScreens(std::unique_ptr<Screen> backgroundScreen, std::unique_ptr<Screen> overlayScreen);
 
 	std::recursive_mutex inputLock_;
 
@@ -195,14 +196,14 @@ private:
 	PostRenderCallback postRenderCb_ = nullptr;
 	void *postRenderUserdata_ = nullptr;
 
-	const Screen *dialogFinished_ = nullptr;
+	const Screen *dialogFinished_;
 	DialogResult dialogResult_{};
 
-	Screen *backgroundScreen_ = nullptr;
-	Screen *overlayScreen_ = nullptr;
+	std::unique_ptr<Screen> backgroundScreen_;
+	std::unique_ptr<Screen> overlayScreen_;
 
 	struct Layer {
-		Screen *screen;
+		std::unique_ptr<Screen> screen;
 		int flags;  // From LAYER_ enum above
 		UI::View *focusedView;  // TODO: save focus here. Going for quick solution now to reset focus.
 	};

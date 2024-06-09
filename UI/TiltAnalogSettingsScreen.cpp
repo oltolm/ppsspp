@@ -39,7 +39,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 
 	bool vertical = UseVerticalLayout();
 
-	root_ = new LinearLayout(vertical ? ORIENT_VERTICAL : ORIENT_HORIZONTAL);
+	root_.reset(new LinearLayout(vertical ? ORIENT_VERTICAL : ORIENT_HORIZONTAL));
 	root_->SetTag("TiltAnalogSettings");
 
 	LinearLayout *settings = new LinearLayoutList(ORIENT_VERTICAL);
