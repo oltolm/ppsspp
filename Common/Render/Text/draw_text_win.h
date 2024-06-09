@@ -3,6 +3,7 @@
 #include "ppsspp_config.h"
 
 #include <map>
+#include <memory>
 #include "Common/Render/Text/draw_text.h"
 
 #if defined(_WIN32) && !defined(USING_QT_UI) && !PPSSPP_PLATFORM(UWP)
@@ -25,7 +26,7 @@ protected:
 	bool SupportsColorEmoji() const override { return false; }
 	void ClearFonts() override;
 
-	TextDrawerContext *ctx_;
+	std::unique_ptr<TextDrawerContext> ctx_;
 	std::map<uint32_t, std::unique_ptr<TextDrawerFontContext>> fontMap_;
 };
 
