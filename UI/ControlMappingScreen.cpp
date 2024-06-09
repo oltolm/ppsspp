@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 #include <algorithm>
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 
@@ -202,25 +203,25 @@ void SingleControlMapper::MappedCallback(const MultiInputMapping &kdf) {
 UI::EventReturn SingleControlMapper::OnReplace(UI::EventParams &params) {
 	actionIndex_ = atoi(params.v->Tag().c_str());
 	action_ = REPLACEONE;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+	scrm_->push(std::make_unique<KeyMappingNewKeyDialog>(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn SingleControlMapper::OnReplaceAll(UI::EventParams &params) {
 	action_ = REPLACEALL;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+	scrm_->push(std::make_unique<KeyMappingNewKeyDialog>(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn SingleControlMapper::OnAdd(UI::EventParams &params) {
 	action_ = ADD;
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+	scrm_->push(std::make_unique<KeyMappingNewKeyDialog>(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
 	return UI::EVENT_DONE;
 }
 UI::EventReturn SingleControlMapper::OnAddMouse(UI::EventParams &params) {
 	action_ = ADD;
 	g_Config.bMapMouse = true;
-	scrm_->push(new KeyMappingNewMouseKeyDialog(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
+	scrm_->push(std::make_unique<KeyMappingNewMouseKeyDialog>(pspKey_, true, std::bind(&SingleControlMapper::MappedCallback, this, std::placeholders::_1), I18NCat::KEYMAPPING));
 	return UI::EVENT_DONE;
 }
 
@@ -255,7 +256,7 @@ void ControlMappingScreen::CreateViews() {
 
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, Margins(10, 0, 0, 10)));
 	leftColumn->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {
@@ -273,7 +274,7 @@ void ControlMappingScreen::CreateViews() {
 	}
 
 	leftColumn->Add(new Choice(km->T("Show PSP")))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new VisualMappingScreen(gamePath_));
+		screenManager()->push(std::make_unique<VisualMappingScreen>(gamePath_));
 		return UI::EVENT_DONE;
 	});
 	leftColumn->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
@@ -334,10 +335,10 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 		items.push_back(*s);
 	}
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
-	UI::ListPopupScreen *autoConfList = new UI::ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
+	auto autoConfList = std::make_unique<UI::ListPopupScreen>(km->T("Autoconfigure for device"), items, -1);
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
-	screenManager()->push(autoConfList);
+	screenManager()->push(std::move(autoConfList));
 	return UI::EVENT_DONE;
 }
 
@@ -565,7 +566,7 @@ void AnalogSetupScreen::CreateViews() {
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 
 	LinearLayout *leftColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300.0f, FILL_PARENT)));
 	LinearLayout *rightColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
@@ -918,7 +919,7 @@ void VisualMappingScreen::CreateViews() {
 
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 
 	constexpr float leftColumnWidth = 200.0f;
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(leftColumnWidth, FILL_PARENT, Margins(10, 0, 0, 10)));
@@ -1049,10 +1050,10 @@ void VisualMappingScreen::MapNext(bool successive) {
 	} else {
 		psp_->SelectButton(nextKey_);
 	}
-	auto dialog = new KeyMappingNewKeyDialog(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), I18NCat::KEYMAPPING);
+	auto dialog = std::make_unique<KeyMappingNewKeyDialog>(nextKey_, true, std::bind(&VisualMappingScreen::HandleKeyMapping, this, std::placeholders::_1), I18NCat::KEYMAPPING);
 
 	Bounds bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	dialog->SetPopupOffset(psp_->GetPopupOffset() * bounds.h);
 	dialog->SetDelay(successive ? 0.5f : 0.1f);
-	screenManager()->push(dialog);
+	screenManager()->push(std::move(dialog));
 }

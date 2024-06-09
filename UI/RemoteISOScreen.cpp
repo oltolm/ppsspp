@@ -16,27 +16,23 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
-#include <algorithm>
+#include <memory>
 #include <thread>
 #include <mutex>
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-#include "Common/CommonWindows.h"
 #include <netfw.h>
 #endif
 
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
 #include "Common/Render/DrawBuffer.h"
 #include "Common/Net/HTTPClient.h"
-#include "Common/Net/Resolve.h"
-#include "Common/Net/URL.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/System/Request.h"
 
 #include "Common/File/PathBrowser.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
@@ -439,7 +435,7 @@ UI::EventReturn RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
 }
 
 UI::EventReturn RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
-	screenManager()->push(new RemoteISOConnectScreen());
+	screenManager()->push(std::make_unique<RemoteISOConnectScreen>());
 	return EVENT_DONE;
 }
 
@@ -485,7 +481,7 @@ void RemoteISOConnectScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumnItems->Add(new Choice(di->T("Cancel"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
 
@@ -540,7 +536,7 @@ void RemoteISOConnectScreen::update() {
 
 	case ScanStatus::LOADED:
 		TriggerFinish(DR_OK);
-		screenManager()->push(new RemoteISOBrowseScreen(url_, games_));
+		screenManager()->push(std::make_unique<RemoteISOBrowseScreen>(url_, games_));
 		break;
 	}
 
@@ -622,14 +618,14 @@ void RemoteISOBrowseScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	if (vertical) {
-		root_ = new LinearLayout(ORIENT_VERTICAL);
+		root_.reset(new LinearLayout(ORIENT_VERTICAL));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
 		Margins actionMenuMargins(0, 10, 10, 0);
-		root_ = new LinearLayout(ORIENT_HORIZONTAL);
+		root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 		root_->Add(leftColumn);

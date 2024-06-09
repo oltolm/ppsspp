@@ -23,6 +23,7 @@
 //
 // Windows has its own code that bypasses the framework entirely.
 
+#include "UI/MainScreen.h"
 #include "ppsspp_config.h"
 
 // Background worker threads should be spawned in NativeInit and joined
@@ -44,12 +45,9 @@
 #include "Windows/CaptureDevice.h"
 #endif
 
-#include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/URL.h"
-#include "Common/Render/TextureAtlas.h"
 #include "Common/Render/Text/draw_text.h"
-#include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Screen.h"
@@ -57,7 +55,6 @@
 #include "Common/UI/View.h"
 #include "Common/UI/IconCache.h"
 
-#include "android/jni/app-android.h"
 
 #include "Common/System/Display.h"
 #include "Common/System/Request.h"
@@ -70,22 +67,18 @@
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/LogManager.h"
-#include "Common/MemArena.h"
 #include "Common/GraphicsContext.h"
 #include "Common/OSVersion.h"
 #include "Common/GPU/ShaderTranslation.h"
 #include "Common/VR/PPSSPPVR.h"
 
-#include "Core/ControlMapper.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -97,15 +90,9 @@
 #include "Core/SaveState.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
-#include "Core/HLE/__sceAudio.h"
-#include "Core/HLE/sceCtrl.h"
-#include "Core/HLE/sceUsbCam.h"
-#include "Core/HLE/sceUsbGps.h"
-#include "Core/HLE/proAdhoc.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/PortManager.h"
-#include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
 #include "Core/ThreadPools.h"
@@ -113,17 +100,13 @@
 #include "GPU/GPUInterface.h"
 #include "UI/AudioCommon.h"
 #include "UI/BackgroundAudio.h"
-#include "UI/ControlMappingScreen.h"
 #include "UI/DevScreens.h"
 #include "UI/DiscordIntegration.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
-#include "UI/GPUDriverTestScreen.h"
 #include "UI/MiscScreens.h"
-#include "UI/MemStickScreen.h"
 #include "UI/OnScreenDisplay.h"
-#include "UI/RemoteISOScreen.h"
 #include "UI/Theme.h"
 
 #if defined(USING_QT_UI)
@@ -154,7 +137,6 @@
 #endif
 
 #if !defined(__LIBRETRO__)
-#include "Core/Util/GameDB.h"
 #endif
 
 #include <Core/HLE/Plugins.h>
@@ -753,22 +735,22 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
 		INFO_LOG(SYSTEM, "No memstick directory! Asking for one to be configured.");
-		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
+		g_screenManager->switchScreen(std::make_unique<LogoScreen>(AfterLogoScreen::MEMSTICK_SCREEN_INITIAL_SETUP));
 	} else if (gotoGameSettings) {
-		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
+		g_screenManager->switchScreen(std::make_unique<LogoScreen>(AfterLogoScreen::TO_GAME_SETTINGS));
 	} else if (gotoTouchScreenTest) {
-		g_screenManager->switchScreen(new MainScreen());
-		g_screenManager->push(new TouchTestScreen(Path()));
+		g_screenManager->switchScreen(std::make_unique<MainScreen>());
+		g_screenManager->push(std::make_unique<TouchTestScreen>(Path()));
 	} else if (gotoDeveloperTools) {
-		g_screenManager->switchScreen(new MainScreen());
-		g_screenManager->push(new DeveloperToolsScreen(Path()));
+		g_screenManager->switchScreen(std::make_unique<MainScreen>());
+		g_screenManager->push(std::make_unique<DeveloperToolsScreen>(Path()));
 	} else if (skipLogo) {
-		g_screenManager->switchScreen(new EmuScreen(boot_filename));
+		g_screenManager->switchScreen(std::make_unique<EmuScreen>(boot_filename));
 	} else {
-		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
+		g_screenManager->switchScreen(std::make_unique<LogoScreen>(AfterLogoScreen::DEFAULT));
 	}
 
-	g_screenManager->SetBackgroundOverlayScreens(new BackgroundScreen(), new OSDOverlayScreen());
+	g_screenManager->SetBackgroundOverlayScreens(std::make_unique<BackgroundScreen>(), std::make_unique<OSDOverlayScreen>());
 
 	// Easy testing
 	// screenManager->push(new GPUDriverTestScreen());

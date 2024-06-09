@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Render/DrawBuffer.h"
@@ -617,7 +618,7 @@ void SavedataScreen::CreateViews() {
 	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 
 	gridStyle_ = false;
-	root_ = new AnchorLayout();
+	root_.reset(new AnchorLayout());
 
 	// Make space for buttons.
 	LinearLayout *main = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0, 0, 0, 84.0f));
@@ -652,7 +653,7 @@ void SavedataScreen::CreateViews() {
 	sortStrip->SetSelection((int)sortOption_, false);
 	sortStrip->OnChoice.Handle<SavedataScreen>(this, &SavedataScreen::OnSortClick);
 
-	AddStandardBack(root_);
+	AddStandardBack(root_.get());
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		root_->Add(new Choice(di->T("Search"), "", false, new AnchorLayoutParams(WRAP_CONTENT, 64, NONE, NONE, 10, 10)))->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
@@ -686,11 +687,11 @@ UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
 		return UI::EVENT_DONE;
 	}
-	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(e.s, ginfo->GetTitle());
+	auto popupScreen = std::make_unique<SavedataPopupScreen>(e.s, ginfo->GetTitle());
 	if (e.v) {
 		popupScreen->SetPopupOrigin(e.v);
 	}
-	screenManager()->push(popupScreen);
+	screenManager()->push(std::move(popupScreen));
 	// the game path: e.s;
 	return UI::EVENT_DONE;
 }

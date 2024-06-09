@@ -22,18 +22,6 @@
 
 const int MAX_CORES_TO_USE = 16;
 const int MIN_IO_BLOCKING_THREADS = 4;
-static constexpr size_t TASK_PRIORITY_COUNT = (size_t)TaskPriority::COUNT;
-
-struct GlobalThreadContext {
-	std::mutex mutex;
-	std::deque<Task *> compute_queue[TASK_PRIORITY_COUNT];
-	std::atomic<int> compute_queue_size;
-	std::deque<Task *> io_queue[TASK_PRIORITY_COUNT];
-	std::atomic<int> io_queue_size;
-	std::vector<TaskThreadContext *> threads_;
-
-	std::atomic<int> roundRobin;
-};
 
 struct TaskThreadContext {
 	std::atomic<int> queue_size;
@@ -51,10 +39,6 @@ ThreadManager::ThreadManager() : global_(new GlobalThreadContext()) {
 	global_->compute_queue_size = 0;
 	global_->io_queue_size = 0;
 	global_->roundRobin = 0;
-}
-
-ThreadManager::~ThreadManager() {
-	delete global_;
 }
 
 void ThreadManager::Teardown() {
@@ -229,7 +213,7 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 		thread->cancelled.store(false);
 		thread->type = i < numComputeThreads_ ? TaskType::CPU_COMPUTE : TaskType::IO_BLOCKING;
 		thread->index = i;
-		thread->thread = std::thread(&WorkerThreadFunc, global_, thread);
+		thread->thread = std::thread(&WorkerThreadFunc, global_.get(), thread);
 		global_->threads_.push_back(thread);
 	}
 }

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <memory>
 #include <sstream>
 #include <cstring>
 
@@ -102,13 +103,13 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 		choices.push_back(category ? std::string(category->T(choices_[i])) : std::string(choices_[i]));
 	}
 
-	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_,
+	auto popupScreen = std::make_unique<ListPopupScreen>(ChopTitle(text_), choices, *value_ - minVal_,
 		std::bind(&PopupMultiChoice::ChoiceCallback, this, std::placeholders::_1));
 	popupScreen->SetHiddenChoices(hidden_);
 	popupScreen->SetChoiceIcons(icons_);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
-	screenManager_->push(popupScreen);
+	screenManager_->push(std::move(popupScreen));
 	return UI::EVENT_DONE;
 }
 
@@ -202,13 +203,13 @@ void PopupSliderChoiceFloat::SetFormat(std::string_view fmt) {
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_);
+	auto popupScreen = std::make_unique<SliderPopupScreen>(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_);
 	if (!negativeLabel_.empty())
 		popupScreen->SetNegativeDisable(negativeLabel_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
-	screenManager_->push(popupScreen);
+	screenManager_->push(std::move(popupScreen));
 	return EVENT_DONE;
 }
 
@@ -267,12 +268,12 @@ std::string PopupSliderChoice::ValueText() const {
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_, liveUpdate_);
+	auto popupScreen = std::make_unique<SliderFloatPopupScreen>(value_, minValue_, maxValue_, defaultValue_, ChopTitle(text_), step_, units_, liveUpdate_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
 	popupScreen->SetHasDropShadow(hasDropShadow_);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
-	screenManager_->push(popupScreen);
+	screenManager_->push(std::move(popupScreen));
 	return EVENT_DONE;
 }
 
@@ -536,14 +537,14 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 		return EVENT_DONE;
 	}
 
-	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, ChopTitle(text_), maxLen_);
+	auto popupScreen = std::make_unique<TextEditPopupScreen>(value_, placeHolder_, ChopTitle(text_), maxLen_);
 	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
 		popupScreen->SetAlignTop(true);
 	}
 	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
-	screenManager_->push(popupScreen);
+	screenManager_->push(std::move(popupScreen));
 	return EVENT_DONE;
 }
 

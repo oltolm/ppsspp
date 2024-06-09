@@ -11,6 +11,7 @@
 #include "UI/DriverManagerScreen.h"
 #include "UI/GameSettingsScreen.h"  // for triggerrestart
 #include "UI/OnScreenDisplay.h"
+#include <memory>
 
 static Path GetDriverPath() {
 	if (g_Config.internalDataDirectory.empty()) {
@@ -189,7 +190,7 @@ void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
 UI::EventReturn DriverManagerScreen::OnCustomDriverChange(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-	screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+	screenManager()->push(std::make_unique<PromptScreen>(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 		if (yes) {
 			INFO_LOG(G3D, "Switching driver to '%s'", e.s.c_str());
 			g_Config.sCustomDriver = e.s;

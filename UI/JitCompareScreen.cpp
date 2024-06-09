@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <memory>
 
 #include "UI/JitCompareScreen.h"
 
@@ -48,7 +49,7 @@ void JitCompareScreen::CreateViews() {
 
 	using namespace UI;
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 
 	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT)));
 	LinearLayout *leftColumn = leftColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
@@ -123,8 +124,8 @@ void JitCompareScreen::CreateViews() {
 	LinearLayout *listTopBar = blockListView_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	Button *sortButton = new Button(dev->T("Sort..."));
 	listTopBar->Add(sortButton)->OnClick.Add([this, sortButton, sortCount](UI::EventParams &e) {
-		PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(sortMenu, sortCount, I18NCat::DEVELOPER, sortButton);
-		screenManager()->push(contextMenu);
+		auto contextMenu = std::make_unique<UI::PopupContextMenuScreen>(sortMenu, sortCount, I18NCat::DEVELOPER, sortButton);
+		screenManager()->push(std::move(contextMenu));
 		contextMenu->OnChoice.Add([=](EventParams &e) -> UI::EventReturn {
 			if (e.a < (int)ListSort::MAX) {
 				listSort_ = (ListSort)e.a;
@@ -407,9 +408,9 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	auto addressPrompt = new AddressPromptScreen(dev->T("Block address"));
+	auto addressPrompt = std::make_unique<AddressPromptScreen>(dev->T("Block address"));
 	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
-	screenManager()->push(addressPrompt);
+	screenManager()->push(std::move(addressPrompt));
 	return UI::EVENT_DONE;
 }
 
@@ -495,7 +496,7 @@ void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void AddressPromptScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
 		UI::EventParams e{};
-		e.v = root_;
+		e.v = root_.get();
 		e.a = addr_;
 		OnChoice.Trigger(e);
 	}

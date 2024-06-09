@@ -17,6 +17,7 @@
 
 // Hack around name collisions between UI and xlib
 // Only affects this file.
+#include <memory>
 #undef VK_USE_PLATFORM_XLIB_KHR
 #undef VK_USE_PLATFORM_XCB_KHR
 #undef VK_USE_PLATFORM_DIRECTFB_EXT
@@ -34,32 +35,27 @@
 #include "Common/System/OSD.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
-#include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Common/Net/HTTPClient.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/IconCache.h"
 #include "Common/Data/Text/Parsers.h"
-#include "Common/Profiler/Profiler.h"
 
+#include "Common/LogReporting.h"
+#include "Common/MemoryUtil.h"
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
 
-#include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "Core/Reporting.h"
 #include "Core/CoreParameter.h"
+#include "Core/KeyMap.h"
 #include "Core/HLE/sceKernel.h"  // GPI/GPO
-#include "Core/MIPS/MIPSTables.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/GPUInterface.h"
@@ -67,7 +63,6 @@
 #include "UI/MiscScreens.h"
 #include "UI/DevScreens.h"
 #include "UI/MainScreen.h"
-#include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/JitCompareScreen.h"
 
@@ -75,8 +70,6 @@
 // Want to avoid including the full header here as it includes d3dx.h
 int GetD3DCompilerVersion();
 #endif
-
-#include "android/jni/app-android.h"
 
 static const char *logLevelList[] = {
 	"Notice",
@@ -144,7 +137,7 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
 
 	items->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
-		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
+		screenManager()->push(std::make_unique<GPIGPOScreen>(dev->T("GPI/GPO switches/LEDs")));
 		return UI::EVENT_DONE;
 	});
 
@@ -184,32 +177,32 @@ UI::EventReturn DevMenuScreen::OnResetLimitedLogging(UI::EventParams &e) {
 
 UI::EventReturn DevMenuScreen::OnLogView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new LogScreen());
+	screenManager()->push(std::make_unique<LogScreen>());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenuScreen::OnLogConfig(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new LogConfigScreen());
+	screenManager()->push(std::make_unique<LogConfigScreen>());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenuScreen::OnDeveloperTools(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new DeveloperToolsScreen(gamePath_));
+	screenManager()->push(std::make_unique<DeveloperToolsScreen>(gamePath_));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenuScreen::OnJitCompare(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new JitCompareScreen());
+	screenManager()->push(std::make_unique<JitCompareScreen>());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenuScreen::OnShaderView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	if (gpu)  // Avoid crashing if chosen while the game is being loaded.
-		screenManager()->push(new ShaderListScreen());
+		screenManager()->push(std::make_unique<ShaderListScreen>());
 	return UI::EVENT_DONE;
 }
 
@@ -265,7 +258,7 @@ void LogScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	root_ = outer;
+	root_.reset(outer);
 
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -299,7 +292,7 @@ void LogConfigScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	root_ = new ScrollView(ORIENT_VERTICAL);
+	root_.reset(new ScrollView(ORIENT_VERTICAL));
 
 	LinearLayout *vert = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	vert->SetSpacing(0);
@@ -369,11 +362,11 @@ UI::EventReturn LogConfigScreen::OnLogLevelChange(UI::EventParams &e) {
 UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	auto logLevelScreen = new LogLevelScreen(dev->T("Log Level"));
+	auto logLevelScreen = std::make_unique<LogLevelScreen>(dev->T("Log Level"));
 	logLevelScreen->OnChoice.Handle(this, &LogConfigScreen::OnLogLevelChange);
 	if (e.v)
 		logLevelScreen->SetPopupOrigin(e.v);
-	screenManager()->push(logLevelScreen);
+	screenManager()->push(std::move(logLevelScreen));
 	return UI::EVENT_DONE;
 }
 
@@ -440,7 +433,7 @@ void JitDebugScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	root_ = new ScrollView(ORIENT_VERTICAL);
+	root_.reset(new ScrollView(ORIENT_VERTICAL));
 
 	LinearLayout *vert = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	vert->SetSpacing(0);
@@ -951,7 +944,7 @@ void ShaderListScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
-	root_ = layout;
+	root_.reset(layout);
 
 	tabs_ = new TabHolder(ORIENT_HORIZONTAL, 40, new LinearLayoutParams(1.0));
 	tabs_->SetTag("DevShaderList");
@@ -970,7 +963,7 @@ UI::EventReturn ShaderListScreen::OnShaderClick(UI::EventParams &e) {
 	using namespace UI;
 	std::string id = e.v->Tag();
 	DebugShaderType type = shaderTypes[tabs_->GetCurrentTab()].type;
-	screenManager()->push(new ShaderViewScreen(id, type));
+	screenManager()->push(std::make_unique<ShaderViewScreen>(id, type));
 	return EVENT_DONE;
 }
 
@@ -980,7 +973,7 @@ void ShaderViewScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
-	root_ = layout;
+	root_.reset(layout);
 
 	layout->Add(new TextView(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, false));
 
@@ -1025,13 +1018,13 @@ FrameDumpTestScreen::~FrameDumpTestScreen() {
 void FrameDumpTestScreen::CreateViews() {
 	using namespace UI;
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_.reset(new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	TabHolder *tabHolder;
 	tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
-	AddStandardBack(root_);
+	AddStandardBack(root_.get());
 	tabHolder->SetTag("DumpTypes");
 	root_->SetDefaultFocusView(tabHolder);
 
@@ -1157,7 +1150,7 @@ void TouchTestScreen::CreateViews() {
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	root_ = new LinearLayout(ORIENT_VERTICAL);
+	root_.reset(new LinearLayout(ORIENT_VERTICAL));
 	LinearLayout *theTwo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 
 	// TODO: This one should use DYNAMIC_ASCII. Though doesn't matter much.

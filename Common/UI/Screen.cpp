@@ -10,8 +10,9 @@
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Data/Collections/TinySet.h"
 
-#include "Core/KeyMap.h"
+#include <memory>
 
 void Screen::focusChanged(ScreenFocusChange focusChange) {
 	const char *eventName = "";
@@ -41,7 +42,7 @@ ScreenManager::~ScreenManager() {
 	shutdown();
 }
 
-void ScreenManager::switchScreen(Screen *screen) {
+void ScreenManager::switchScreen(std::unique_ptr<Screen> screen) {
 	// TODO: inputLock_ ?
 
 	if (!nextStack_.empty() && screen == nextStack_.front().screen) {
@@ -54,7 +55,6 @@ void ScreenManager::switchScreen(Screen *screen) {
 	// TODO: is this still true?
 	if (!nextStack_.empty()) {
 		ERROR_LOG(SYSTEM, "Already had a nextStack_! Asynchronous open while doing something? Deleting the new screen.");
-		delete screen;
 		return;
 	}
 	if (screen == nullptr) {
@@ -62,7 +62,7 @@ void ScreenManager::switchScreen(Screen *screen) {
 	}
 	if (stack_.empty() || screen != stack_.back().screen) {
 		screen->setScreenManager(this);
-		nextStack_.push_back({ screen, 0 });
+		nextStack_.push_back({ std::move(screen), 0 });
 	}
 }
 
@@ -90,20 +90,17 @@ void ScreenManager::switchToNext() {
 
 	Layer temp = {nullptr, 0};
 	if (!stack_.empty()) {
-		temp = stack_.back();
+		temp = std::move(stack_.back());
 		temp.screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 		stack_.pop_back();
 	}
-	stack_.push_back(nextStack_.front());
-	nextStack_.front().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
-	if (temp.screen) {
-		delete temp.screen;
-	}
+	stack_.push_back(std::move(nextStack_.front()));
+	stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
 	UI::SetFocusedView(nullptr);
 
 	// When will this ever happen? Should handle focus here too?
 	for (size_t i = 1; i < nextStack_.size(); ++i) {
-		stack_.push_back(nextStack_[i]);
+		stack_.push_back(std::move(nextStack_[i]));
 	}
 	nextStack_.clear();
 }
@@ -113,7 +110,7 @@ void ScreenManager::touch(const TouchInput &touch) {
 	// Send release all events to every screen layer.
 	if (touch.flags & TOUCH_RELEASE_ALL) {
 		for (auto &layer : stack_) {
-			Screen *screen = layer.screen;
+			Screen *screen = layer.screen.get();
 			layer.screen->UnsyncTouch(screen->transformTouch(touch));
 		}
 	} else if (!stack_.empty()) {
@@ -123,7 +120,7 @@ void ScreenManager::touch(const TouchInput &touch) {
 			skip = overlayScreen_->UnsyncTouch(overlayScreen_->transformTouch(touch));
 		}
 		if (!skip) {
-			Screen *screen = stack_.back().screen;
+			Screen *screen = stack_.back().screen.get();
 			stack_.back().screen->UnsyncTouch(screen->transformTouch(touch));
 		}
 	}
@@ -190,13 +187,13 @@ ScreenRenderFlags ScreenManager::render() {
 			ScreenRenderRole role = iter->screen->renderRole(first);
 			if (!foundBackgroundScreen && (role & ScreenRenderRole::CAN_BE_BACKGROUND)) {
 				// There still might be a screen that wants to be background - generally the EmuScreen if present.
-				layers.push_back(iter->screen);
-				foundBackgroundScreen = iter->screen;
+				layers.push_back(iter->screen.get());
+				foundBackgroundScreen = iter->screen.get();
 			} else if (!coveringScreen) {
-				layers.push_back(iter->screen);
+				layers.push_back(iter->screen.get());
 			}
 			if (iter->flags != LAYER_TRANSPARENT) {
-				coveringScreen = iter->screen;
+				coveringScreen = iter->screen.get();
 			}
 			first = false;
 			if (role & ScreenRenderRole::MUST_BE_FIRST) {
@@ -205,8 +202,8 @@ ScreenRenderFlags ScreenManager::render() {
 		} while (iter != stack_.begin());
 
 		if (backgroundScreen_ && !foundBackgroundScreen) {
-			layers.push_back(backgroundScreen_);
-			foundBackgroundScreen = backgroundScreen_;
+			layers.push_back(backgroundScreen_.get());
+			foundBackgroundScreen = backgroundScreen_.get();
 		}
 
 		// OK, now we iterate backwards over our little pile of collected screens.
@@ -278,19 +275,13 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 
 void ScreenManager::shutdown() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	for (const auto &layer : stack_)
-		delete layer.screen;
 	stack_.clear();
-	for (const auto &layer : nextStack_)
-		delete layer.screen;
 	nextStack_.clear();
-	delete overlayScreen_;
 	overlayScreen_ = nullptr;
-	delete backgroundScreen_;
 	backgroundScreen_ = nullptr;
 }
 
-void ScreenManager::push(Screen *screen, int layerFlags) {
+void ScreenManager::push(std::unique_ptr<Screen> screen, int layerFlags) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	screen->setScreenManager(this);
 	if (screen->isTransparent()) {
@@ -307,7 +298,7 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 	input.id = 0;
 	touch(input);
 
-	Layer layer = {screen, layerFlags};
+	Layer layer = {std::move(screen), layerFlags};
 
 	if (!stack_.empty()) {
 		stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
@@ -315,9 +306,9 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 
 	if (nextStack_.empty()) {
 		layer.screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
-		stack_.push_back(layer);
+		stack_.push_back(std::move(layer));
 	} else {
-		nextStack_.push_back(layer);
+		nextStack_.push_back(std::move(layer));
 	}
 }
 
@@ -326,7 +317,6 @@ void ScreenManager::pop() {
 	if (!stack_.empty()) {
 		stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 
-		delete stack_.back().screen;
 		stack_.pop_back();
 
 		if (!stack_.empty()) {
@@ -344,12 +334,12 @@ void ScreenManager::RecreateAllViews() {
 	}
 }
 
-void ScreenManager::finishDialog(Screen *dialog, DialogResult result) {
+void ScreenManager::finishDialog(Screen* dialog, DialogResult result) {
 	if (stack_.empty()) {
 		ERROR_LOG(SYSTEM, "Must be in a dialog to finishDialog");
 		return;
 	}
-	if (dialog != stack_.back().screen) {
+	if (dialog != stack_.back().screen.get()) {
 		ERROR_LOG(SYSTEM, "Wrong dialog being finished!");
 		return;
 	}
@@ -360,9 +350,9 @@ void ScreenManager::finishDialog(Screen *dialog, DialogResult result) {
 
 Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 	for (size_t i = 1; i < stack_.size(); ++i) {
-		if (stack_[i].screen == dialog) {
+		if (stack_[i].screen.get() == dialog) {
 			// The previous screen was the caller (not necessarily the topmost.)
-			return stack_[i - 1].screen;
+			return stack_[i - 1].screen.get();
 		}
 	}
 
@@ -371,14 +361,17 @@ Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 
 void ScreenManager::processFinishDialog() {
 	if (dialogFinished_) {
+		std::unique_ptr<Screen> dialogFinished;
 		{
 			std::lock_guard<std::recursive_mutex> guard(inputLock_);
 			// Another dialog may have been pushed before the render, so search for it.
 			Screen *caller = dialogParent(dialogFinished_);
 			bool erased = false;
 			for (size_t i = 0; i < stack_.size(); ++i) {
-				if (stack_[i].screen == dialogFinished_) {
+				if (stack_[i].screen.get() == dialogFinished_) {
 					stack_[i].screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
+					// we delete the screen at the end of the function
+					dialogFinished = std::move(stack_[i].screen);
 					stack_.erase(stack_.begin() + i);
 					erased = true;
 				}
@@ -394,24 +387,17 @@ void ScreenManager::processFinishDialog() {
 				// The caller may get confused if we call dialogFinished() now.
 				WARN_LOG(SYSTEM, "Skipping non-top dialog when finishing dialog.");
 			} else {
-				caller->dialogFinished(dialogFinished_, dialogResult_);
+				caller->dialogFinished(dialogFinished.get(), dialogResult_);
 			}
 		}
-		delete dialogFinished_;
 		dialogFinished_ = nullptr;
 	}
 }
 
-void ScreenManager::SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen) {
-	if (backgroundScreen_) {
-		delete backgroundScreen_;
-	}
-	backgroundScreen_ = backgroundScreen;
+void ScreenManager::SetBackgroundOverlayScreens(std::unique_ptr<Screen> backgroundScreen, std::unique_ptr<Screen> overlayScreen) {
+	backgroundScreen_ = std::move(backgroundScreen);
 	backgroundScreen_->setScreenManager(this);
 
-	if (overlayScreen_) {
-		delete overlayScreen_;
-	}
-	overlayScreen_ = overlayScreen;
+	overlayScreen_ = std::move(overlayScreen);
 	overlayScreen_->setScreenManager(this);
 }
