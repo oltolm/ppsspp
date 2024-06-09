@@ -15,15 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
 #include <memory>
 
-#include "Common/Render/DrawBuffer.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/UIScreen.h"
-#include "Common/GPU/thin3d.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
@@ -42,9 +39,6 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
-
-#include "GPU/GPUCommon.h"
-#include "GPU/GPUState.h"
 
 #include "UI/PauseScreen.h"
 #include "UI/GameSettingsScreen.h"
@@ -341,7 +335,7 @@ void GamePauseScreen::CreateViews() {
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 
 	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
 	root_->Add(leftColumn);
@@ -396,7 +390,7 @@ void GamePauseScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	if (getUMDReplacePermit()) {
 		rightColumnItems->Add(new Choice(pa->T("Switch UMD")))->OnClick.Add([=](UI::EventParams &) {
-			screenManager()->push(new UmdReplaceScreen());
+			screenManager()->push(std::make_unique<UmdReplaceScreen>());
 			return UI::EVENT_DONE;
 		});
 	}
@@ -416,18 +410,18 @@ void GamePauseScreen::CreateViews() {
 	}
 	UI::Choice *displayEditor_ = rightColumnItems->Add(new Choice(gr->T("Display layout & effects")));
 	displayEditor_->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
-		screenManager()->push(new DisplayLayoutScreen(gamePath_));
+		screenManager()->push(std::make_unique<DisplayLayoutScreen>(gamePath_));
 		return UI::EVENT_DONE;
 	});
 	if (g_Config.bEnableCheats) {
 		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Add([&](UI::EventParams &e) {
-			screenManager()->push(new CwCheatScreen(gamePath_));
+			screenManager()->push(std::make_unique<CwCheatScreen>(gamePath_));
 			return UI::EVENT_DONE;
 		});
 	}
 	if (g_Config.bAchievementsEnable && Achievements::HasAchievementsOrLeaderboards()) {
 		rightColumnItems->Add(new Choice(ac->T("Achievements")))->OnClick.Add([&](UI::EventParams &e) {
-			screenManager()->push(new RetroAchievementsListScreen(gamePath_));
+			screenManager()->push(std::make_unique<RetroAchievementsListScreen>(gamePath_));
 			return UI::EVENT_DONE;
 		});
 	}
@@ -456,7 +450,7 @@ void GamePauseScreen::CreateViews() {
 		middleColumn->Add(new Spacer(20.0));
 		Button *infoButton = middleColumn->Add(new Button("", ImageID("I_INFO"), new LinearLayoutParams(64, 64)));
 		infoButton->OnClick.Add([=](UI::EventParams &e) {
-			screenManager()->push(new GameScreen(gamePath_, true));
+			screenManager()->push(std::make_unique<GameScreen>(gamePath_, true));
 			return UI::EVENT_DONE;
 		});
 	} else {
@@ -467,7 +461,7 @@ void GamePauseScreen::CreateViews() {
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(gamePath_));
+	screenManager()->push(std::make_unique<GameSettingsScreen>(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -496,8 +490,8 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
 		Path fn = v->GetScreenshotFilename();
 		std::string title = v->GetScreenshotTitle();
-		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), gamePath_);
-		screenManager()->push(screen);
+		auto screen = std::make_unique<ScreenshotViewScreen>(fn, title, v->GetSlot(), gamePath_);
+		screenManager()->push(std::move(screen));
 	}
 	return UI::EVENT_DONE;
 }
@@ -507,7 +501,7 @@ UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
 	if (Achievements::RAIntegrationDirty()) {
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, ac->T("You have unsaved RAIntegration changes. Exit?"), di->T("Yes"), di->T("No"), [=](bool result) {
+		screenManager()->push(std::make_unique<PromptScreen>(gamePath_, ac->T("You have unsaved RAIntegration changes. Exit?"), di->T("Yes"), di->T("No"), [=](bool result) {
 			if (result) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();
@@ -528,7 +522,7 @@ UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
 }
 
 UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
-	screenManager()->push(new ReportScreen(gamePath_));
+	screenManager()->push(std::make_unique<ReportScreen>(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -587,7 +581,7 @@ UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
 	screenManager()->push(
-		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
+		std::make_unique<PromptScreen>(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
 
 	return UI::EVENT_DONE;

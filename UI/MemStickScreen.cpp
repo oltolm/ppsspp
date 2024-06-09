@@ -17,10 +17,8 @@
 
 #include "ppsspp_config.h"
 
-#include "android/jni/app-android.h"
-
 #include "Common/Log.h"
-#include "Common/UI/UI.h"
+#include "Common/LogReporting.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 
@@ -28,7 +26,6 @@
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
-#include "Common/System/Display.h"
 #include "Common/System/OSD.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
@@ -41,15 +38,13 @@
 #include "Common/Thread/ThreadManager.h"
 
 #include "Core/Config.h"
-#include "Core/Reporting.h"
-#include "Core/System.h"
-#include "Core/Util/GameManager.h"
 #include "Core/Util/MemStick.h"
 
 #include "UI/MemStickScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/OnScreenDisplay.h"
+#include <memory>
 
 static std::string FormatSpaceString(int64_t space) {
 	if (space >= 0) {
@@ -161,7 +156,7 @@ void MemStickScreen::CreateViews() {
 
 	Margins actionMenuMargins(15, 0, 15, 0);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 
 	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0, FILL_PARENT, 0.0f));
 	ScrollView *mainColumnScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
@@ -383,10 +378,10 @@ UI::EventReturn MemStickScreen::UseInternalStorage(UI::EventParams &params) {
 			ERROR_LOG_REPORT(Log::System, "Could not switch memstick path in setup (internal)");
 		}
 		// Don't have a confirmation dialog that would otherwise do it for us, need to just switch directly to the main screen.
-		screenManager()->switchScreen(new MainScreen());
+		screenManager()->switchScreen(std::make_unique<MainScreen>());
 	} else if (pendingMemStickFolder != g_Config.memStickDirectory) {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
-		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
+		screenManager()->push(std::make_unique<ConfirmMemstickMoveScreen>(pendingMemStickFolder, false));
 	} else {
 		// User chose the same directory it's already in. Let's just bail.
 		TriggerFinish(DialogResult::DR_OK);
@@ -408,7 +403,7 @@ UI::EventReturn MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 		}
 	} else if (pendingMemStickFolder != g_Config.memStickDirectory) {
 		// Always ask for confirmation when called from the UI. Likely there's already some data.
-		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
+		screenManager()->push(std::make_unique<ConfirmMemstickMoveScreen>(pendingMemStickFolder, false));
 	} else {
 		// User chose the same directory it's already in. Let's just bail.
 		TriggerFinish(DialogResult::DR_OK);
@@ -431,7 +426,7 @@ UI::EventReturn MemStickScreen::Browse(UI::EventParams &params) {
 		}
 		errorNoticeView_->SetVisibility(UI::V_GONE);
 
-		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
+		screenManager()->push(std::make_unique<ConfirmMemstickMoveScreen>(pendingMemStickFolder, initialSetup_));
 	}, [=]() {
 		errorNoticeView_->SetVisibility(UI::V_VISIBLE);
 	});
@@ -477,7 +472,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 
 	Path oldMemstickFolder = g_Config.memStickDirectory;
 
@@ -622,7 +617,7 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 		// (which we better have been...)
 		if (g_Config.Save("MemstickPathChanged")) {
 			// TriggerFinish(DialogResult::DR_OK);
-			screenManager()->switchScreen(new MainScreen());
+			screenManager()->switchScreen(std::make_unique<MainScreen>());
 		} else {
 			error_ = ms->T("Failed to save config");
 			RecreateViews();

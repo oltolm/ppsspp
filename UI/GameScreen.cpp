@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
+#include <memory>
 
 #include "ppsspp_config.h"
 
@@ -26,13 +26,11 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/System/OSD.h"
 #include "Common/System/Request.h"
-#include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
@@ -109,7 +107,7 @@ void GameScreen::CreateViews() {
 
 	Margins actionMenuMargins(0, 100, 15, 0);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL));
 
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
@@ -330,7 +328,7 @@ UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
 	screenManager()->push(
-		new PromptScreen(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
+		std::make_unique<PromptScreen>(gamePath_, di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 		std::bind(&GameScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
 
 	return UI::EVENT_DONE;
@@ -495,7 +493,7 @@ UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
-	screenManager()->push(new CwCheatScreen(gamePath_));
+	screenManager()->push(std::make_unique<CwCheatScreen>(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -515,7 +513,7 @@ UI::EventReturn GameScreen::OnSwitchBack(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnPlay(UI::EventParams &e) {
-	screenManager()->switchScreen(new EmuScreen(gamePath_));
+	screenManager()->switchScreen(std::make_unique<EmuScreen>(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -525,7 +523,7 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 		std::string discID = info->GetParamSFO().GetValueString("DISC_ID");
 		if ((discID.empty() || !info->disc_total) && gamePath_.FilePathContainsNoCase("PSP/GAME/"))
 			discID = g_paramSFO.GenerateFakeID(gamePath_);
-		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));
+		screenManager()->push(std::make_unique<GameSettingsScreen>(gamePath_, discID, true));
 	}
 	return UI::EVENT_DONE;
 }
@@ -538,7 +536,7 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			auto ga = GetI18NCategory(I18NCat::GAME);
 			screenManager()->push(
-				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
+				std::make_unique<PromptScreen>(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 				std::bind(&GameScreen::CallbackDeleteSaveData, this, std::placeholders::_1)));
 		}
 	}
@@ -564,7 +562,7 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 		prompt = di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this.");
 		prompt += "\n\n" + gamePath_.ToVisualString(g_Config.memStickDirectory.c_str());
 		screenManager()->push(
-			new PromptScreen(gamePath_, prompt, ga->T("ConfirmDelete"), di->T("Cancel"),
+			std::make_unique<PromptScreen>(gamePath_, prompt, ga->T("ConfirmDelete"), di->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, std::placeholders::_1)));
 	}
 	return UI::EVENT_DONE;
@@ -575,7 +573,7 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 		info->Delete();
 		g_gameInfoCache->Clear();
-		screenManager()->switchScreen(new MainScreen());
+		screenManager()->switchScreen(std::make_unique<MainScreen>());
 	}
 }
 
@@ -594,7 +592,7 @@ bool GameScreen::isRecentGame(const Path &gamePath) {
 
 UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 	g_Config.RemoveRecent(gamePath_.ToString());
-	screenManager()->switchScreen(new MainScreen());
+	screenManager()->switchScreen(std::make_unique<MainScreen>());
 	return UI::EVENT_DONE;
 }
 
@@ -664,9 +662,9 @@ UI::EventReturn GameScreen::OnSetBackground(UI::EventParams &e) {
 	auto ga = GetI18NCategory(I18NCat::GAME);
 	// This popup is used to prevent any race condition:
 	// g_gameInfoCache may take time to load the data, and a crash could happen if they exit before then.
-	SetBackgroundPopupScreen *pop = new SetBackgroundPopupScreen(ga->T("Setting Background"), gamePath_);
+	auto pop = std::make_unique<SetBackgroundPopupScreen>(ga->T("Setting Background"), gamePath_);
 	if (e.v)
 		pop->SetPopupOrigin(e.v);
-	screenManager()->push(pop);
+	screenManager()->push(std::move(pop));
 	return UI::EVENT_DONE;
 }

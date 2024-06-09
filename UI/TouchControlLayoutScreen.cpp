@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 #include "Common/Data/Color/RGBAUtil.h"
@@ -578,7 +579,7 @@ void TouchControlLayoutScreen::onFinish(DialogResult reason) {
 }
 
 UI::EventReturn TouchControlLayoutScreen::OnVisibility(UI::EventParams &e) {
-	screenManager()->push(new TouchControlVisibilityScreen(gamePath_));
+	screenManager()->push(std::make_unique<TouchControlVisibilityScreen>(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -630,7 +631,7 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	auto rootLayout = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 	rootLayout->SetSpacing(0.0f);
-	root_ = rootLayout;
+	root_.reset(rootLayout);
 
 	ScrollView *leftColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(leftColumnWidth, FILL_PARENT)));
 	leftColumnScroll->SetAlignOpposite(true);

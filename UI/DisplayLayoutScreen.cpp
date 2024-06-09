@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <memory>
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
@@ -30,11 +31,9 @@
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/StringUtils.h"
 
-#include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "Core/Config.h"
-#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
@@ -196,7 +195,7 @@ void DisplayLayoutScreen::CreateViews() {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_.reset(new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT)));
 
 	bool vertical = bounds.h > bounds.w;
 
@@ -343,12 +342,12 @@ void DisplayLayoutScreen::CreateViews() {
 		}
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-			auto procScreen = new PostProcScreen(gr->T("Postprocessing shaders"), i, false);
+			auto procScreen = std::make_unique<PostProcScreen>(gr->T("Postprocessing shaders"), i, false);
 			procScreen->SetHasDropShadow(false);
 			procScreen->OnChoice.Handle(this, &DisplayLayoutScreen::OnPostProcShaderChange);
 			if (e.v)
 				procScreen->SetPopupOrigin(e.v);
-			screenManager()->push(procScreen);
+			screenManager()->push(std::move(procScreen));
 			return UI::EVENT_DONE;
 		});
 		postProcChoice_->SetEnabledFunc([=] {
@@ -386,8 +385,8 @@ void DisplayLayoutScreen::CreateViews() {
 
 			auto moreButton = shaderRow->Add(new Choice(ImageID("I_THREE_DOTS"), new LinearLayoutParams(0.0f)));
 			moreButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
-				PopupContextMenuScreen *contextMenu = new UI::PopupContextMenuScreen(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), I18NCat::DIALOG, moreButton);
-				screenManager()->push(contextMenu);
+				auto contextMenu = std::make_unique<UI::PopupContextMenuScreen>(postShaderContextMenu, ARRAY_SIZE(postShaderContextMenu), I18NCat::DIALOG, moreButton);
+				screenManager()->push(std::move(contextMenu));
 				const ShaderInfo *info = GetPostShaderInfo(g_Config.vPostShaderNames[i]);
 				bool usesLastFrame = info ? info->usePreviousFrame : false;
 				contextMenu->SetEnabled(0, i > 0 && !usesLastFrame);
