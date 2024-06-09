@@ -38,7 +38,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_.reset(new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT)));
 
 	if (vertical) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);

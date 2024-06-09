@@ -16,14 +16,9 @@
 
 #include "Common/Math/math_util.h"
 
-DrawBuffer::DrawBuffer() {
-	verts_ = new Vertex[MAX_VERTS];
+DrawBuffer::DrawBuffer() : verts_(new Vertex[MAX_VERTS]) {
 	fontscalex = 1.0f;
 	fontscaley = 1.0f;
-}
-
-DrawBuffer::~DrawBuffer() {
-	delete [] verts_;
 }
 
 void DrawBuffer::Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline) {
@@ -80,7 +75,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	ub.tint = tint_;
 	ub.saturation = saturation_;
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
-	draw_->DrawUP((const void *)verts_, count_);
+	draw_->DrawUP(verts_.get(), count_);
 	count_ = 0;
 }
 

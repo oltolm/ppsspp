@@ -1,4 +1,6 @@
 #include <ctype.h>
+#include <memory>
+#include <utility>
 #include "ppsspp_config.h"
 
 #include "Common/UI/Root.h"
@@ -116,7 +118,7 @@ UI::EventReturn ChatMenu::OnAskForChatMessage(UI::EventParams &e) {
 	} else {
 		// We need to pop up a UI inputbox.
 		messageTemp_.clear();
-		TextEditPopupScreen *popupScreen = new TextEditPopupScreen(&messageTemp_, "", n->T("Chat message"), 256);
+		auto popupScreen = std::make_unique<TextEditPopupScreen>(&messageTemp_, "", n->T("Chat message"), 256);
 		if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
 			popupScreen->SetAlignTop(true);
 		}
@@ -125,7 +127,7 @@ UI::EventReturn ChatMenu::OnAskForChatMessage(UI::EventParams &e) {
 			return UI::EVENT_DONE;
 		});
 		popupScreen->SetPopupOrigin(chatButton_);
-		screenManager_->push(popupScreen);
+		screenManager_->push(std::move(popupScreen));
 	}
 	return UI::EVENT_DONE;
 }

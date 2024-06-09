@@ -86,7 +86,7 @@ void CwCheatScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_.reset(new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT)));
 
 	TryLoadCheatInfo();  // in case the info is already in cache.
 	Margins actionMenuMargins(50, -15, 15, 0);
@@ -132,7 +132,7 @@ void CwCheatScreen::CreateViews() {
 	layout->Add(rightScroll_);
 	root_->Add(layout);
 
-	AddStandardBack(root_);
+	AddStandardBack(root_.get());
 }
 
 void CwCheatScreen::update() {

@@ -1,6 +1,11 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
+#include <deque>
+#include <memory>
+#include <mutex>
+#include <vector>
 
 // The new threadpool.
 
@@ -46,12 +51,23 @@ public:
 };
 
 struct TaskThreadContext;
-struct GlobalThreadContext;
+static constexpr size_t TASK_PRIORITY_COUNT = (size_t)TaskPriority::COUNT;
+
+struct GlobalThreadContext {
+	std::mutex mutex;
+	std::deque<Task *> compute_queue[TASK_PRIORITY_COUNT];
+	std::atomic<int> compute_queue_size;
+	std::deque<Task *> io_queue[TASK_PRIORITY_COUNT];
+	std::atomic<int> io_queue_size;
+	std::vector<TaskThreadContext *> threads_;
+
+	std::atomic<int> roundRobin;
+};
 
 class ThreadManager {
 public:
 	ThreadManager();
-	~ThreadManager();
+	~ThreadManager() = default;
 
 	// The distinction here is to be able to take hyper-threading into account.
 	// It gets even trickier when you think about mobile chips with BIG/LITTLE, but we'll
@@ -77,7 +93,7 @@ private:
 	bool TeardownTask(Task *task, bool enqueue);
 
 	// This is always pointing to a context, initialized in the constructor.
-	GlobalThreadContext *global_;
+	std::unique_ptr<GlobalThreadContext> global_;
 
 	int numThreads_ = 0;
 	int numComputeThreads_ = 0;
