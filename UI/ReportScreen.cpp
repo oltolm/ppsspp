@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <memory>
 #include <string>
 
 // TODO: For text align flags, probably shouldn't be in gfx_es2/...
@@ -329,7 +330,7 @@ void ReportScreen::CreateViews() {
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
 
@@ -397,7 +398,7 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 	std::string filename = tookScreenshot_ && includeScreenshot_ ? screenshotFilename_.ToString() : "";
 	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
 	TriggerFinish(DR_OK);
-	screenManager()->push(new ReportFinishScreen(gamePath_, overall_));
+	screenManager()->push(std::make_unique<ReportFinishScreen>(gamePath_, overall_));
 	return EVENT_DONE;
 }
 
@@ -438,7 +439,7 @@ void ReportFinishScreen::CreateViews() {
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	root_.reset(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
 

@@ -18,7 +18,8 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
-#include <set>
+#include <memory>
+#include <tuple>
 
 #include "Common/Net/Resolve.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
@@ -30,16 +31,10 @@
 #include "Common/Render/ManagedTexture.h"
 #include "Common/VR/PPSSPPVR.h"
 
-#include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 #include "Common/System/Request.h"
 #include "Common/System/OSD.h"
-#include "Common/Battery/Battery.h"
 #include "Common/System/NativeApp.h"
-#include "Common/Data/Color/RGBAUtil.h"
-#include "Common/Math/curves.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Data/Encoding/Utf8.h"
-#include "UI/EmuScreen.h"
 #include "UI/DriverManagerScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
@@ -61,14 +56,11 @@
 #include "UI/DiscordIntegration.h"
 
 #include "Common/File/FileUtil.h"
-#include "Common/File/AndroidContentURI.h"
 #include "Common/OSVersion.h"
-#include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/KeyMap.h"
-#include "Core/TiltEventProcessor.h"
 #include "Core/Instance.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
@@ -410,7 +402,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
 		displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display layout & effects")));
 		displayEditor_->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
-			screenManager()->push(new DisplayLayoutScreen(gamePath_));
+			screenManager()->push(std::make_unique<DisplayLayoutScreen>(gamePath_));
 			return UI::EVENT_DONE;
 		});
 	}
@@ -754,7 +746,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 
 		Choice *gesture = controlsSettings->Add(new Choice(co->T("Gesture mapping")));
 		gesture->OnClick.Add([=](EventParams &e) {
-			screenManager()->push(new GestureMappingScreen(gamePath_));
+			screenManager()->push(std::make_unique<GestureMappingScreen>(gamePath_));
 			return UI::EVENT_DONE;
 		});
 		gesture->SetEnabledPtr(&g_Config.bShowTouchControls);
@@ -885,7 +877,7 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath_, std::
 		std::string_view warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
 		std::string combined = g_Config.sMACAddress + "\n\n" + std::string(confirmMessage) + "\n\n" + std::string(warningMessage);
 
-		auto confirmScreen = new PromptScreen(
+		auto confirmScreen = std::make_unique<PromptScreen>(
 			gamePath_,
 			combined, di->T("Yes"), di->T("No"),
 			[&](bool success) {
@@ -893,7 +885,7 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath_, std::
 					g_Config.sMACAddress = CreateRandMAC();
 				}}
 		);
-		screenManager->push(confirmScreen);
+		screenManager->push(std::move(confirmScreen));
 		return UI::EVENT_DONE;
 	});
 }
@@ -1009,7 +1001,7 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	if (showRetroAchievements) {
 		auto retro = tools->Add(new Choice(sy->T("RetroAchievements")));
 		retro->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
-			screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
+			screenManager()->push(std::make_unique<RetroAchievementsSettingsScreen>(gamePath_));
 			return UI::EVENT_DONE;
 		});
 		retro->SetIcon(ImageID("I_RETROACHIEVEMENTS_LOGO"));
@@ -1017,19 +1009,19 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 
 	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new SavedataScreen(gamePath_));
+		screenManager()->push(std::make_unique<SavedataScreen>(gamePath_));
 		return UI::EVENT_DONE;
 	});
 	tools->Add(new Choice(dev->T("System Information")))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new SystemInfoScreen(gamePath_));
+		screenManager()->push(std::make_unique<SystemInfoScreen>(gamePath_));
 		return UI::EVENT_DONE;
 	});
 	tools->Add(new Choice(sy->T("Developer Tools")))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new DeveloperToolsScreen(gamePath_));
+		screenManager()->push(std::make_unique<DeveloperToolsScreen>(gamePath_));
 		return UI::EVENT_DONE;
 	});
 	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Add([=](UI::EventParams &) {
-		screenManager()->push(new RemoteISOScreen(gamePath_));
+		screenManager()->push(std::make_unique<RemoteISOScreen>(gamePath_));
 		return UI::EVENT_DONE;
 	});
 }
@@ -1056,7 +1048,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sLanguageIni, sy->T("Language"), langCodeToName))->OnClick.Add([&](UI::EventParams &e) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		auto langScreen = new NewLanguageScreen(sy->T("Language"));
+		auto langScreen = std::make_unique<NewLanguageScreen>(sy->T("Language"));
 		langScreen->OnChoice.Add([&](UI::EventParams &e) {
 			screenManager()->RecreateAllViews();
 			System_Notify(SystemNotification::UI);
@@ -1064,7 +1056,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		});
 		if (e.v)
 			langScreen->SetPopupOrigin(e.v);
-		screenManager()->push(langScreen);
+		screenManager()->push(std::move(langScreen));
 		return UI::EVENT_DONE;
 	});
 
@@ -1382,7 +1374,7 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnShowMemstickScreen(UI::EventParams &e) {
-	screenManager()->push(new MemStickScreen(false));
+	screenManager()->push(std::make_unique<MemStickScreen>(false));
 	return UI::EVENT_DONE;
 }
 
@@ -1606,7 +1598,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+		screenManager()->push(std::make_unique<PromptScreen>(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			if (yes) {
 				TriggerRestart("GameSettingsScreen::RenderingBackendYes", editThenRestore_, gamePath_);
 			} else {
@@ -1622,7 +1614,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 	std::string *deviceNameSetting = GPUDeviceNameSetting();
 	if (deviceNameSetting && *deviceNameSetting != GetGPUBackendDevice()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+		screenManager()->push(std::make_unique<PromptScreen>(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			// If the user ends up deciding not to restart, set the config back to the current backend
 			// so it doesn't get switched by accident.
 			if (yes) {
@@ -1642,7 +1634,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
 	if (g_Config.iInflightFrames != prevInflightFrames_) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+		screenManager()->push(std::make_unique<PromptScreen>(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			if (yes) {
 				TriggerRestart("GameSettingsScreen::InflightFramesYes", editThenRestore_, gamePath_);
 			} else {
@@ -1735,18 +1727,18 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
-	screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, n->T("proAdhocServer Address:")));
+	screenManager()->push(std::make_unique<HostnameSelectScreen>(&g_Config.proAdhocServer, n->T("proAdhocServer Address:")));
 
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnTextureShader(UI::EventParams &e) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	auto shaderScreen = new TextureShaderScreen(gr->T("Texture Shader"));
+	auto shaderScreen = std::make_unique<TextureShaderScreen>(gr->T("Texture Shader"));
 	shaderScreen->OnChoice.Handle(this, &GameSettingsScreen::OnTextureShaderChange);
 	if (e.v)
 		shaderScreen->SetPopupOrigin(e.v);
-	screenManager()->push(shaderScreen);
+	screenManager()->push(std::move(shaderScreen));
 	return UI::EVENT_DONE;
 }
 
@@ -1758,28 +1750,28 @@ UI::EventReturn GameSettingsScreen::OnTextureShaderChange(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
-	screenManager()->push(new ControlMappingScreen(gamePath_));
+	screenManager()->push(std::make_unique<ControlMappingScreen>(gamePath_));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnCalibrateAnalogs(UI::EventParams &e) {
-	screenManager()->push(new AnalogSetupScreen(gamePath_));
+	screenManager()->push(std::make_unique<AnalogSetupScreen>(gamePath_));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e) {
-	screenManager()->push(new TouchControlLayoutScreen(gamePath_));
+	screenManager()->push(std::make_unique<TouchControlLayoutScreen>(gamePath_));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e) {
-	screenManager()->push(new TiltAnalogSettingsScreen(gamePath_));
+	screenManager()->push(std::make_unique<TiltAnalogSettingsScreen>(gamePath_));
 	return UI::EVENT_DONE;
 };
 
 void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
-	root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_.reset(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	settingsScroll->SetTag("DevToolsSettings");
 	root_->Add(settingsScroll);
@@ -1793,7 +1785,7 @@ void DeveloperToolsScreen::CreateViews() {
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
-	AddStandardBack(root_);
+	AddStandardBack(root_.get());
 
 	LinearLayout *list = settingsScroll->Add(new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->SetSpacing(0);
@@ -1873,7 +1865,7 @@ void DeveloperToolsScreen::CreateViews() {
 	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
 		auto driverChoice = list->Add(new Choice(gr->T("Adreno Driver Manager")));
 		driverChoice->OnClick.Add([=](UI::EventParams &e) {
-			screenManager()->push(new DriverManagerScreen(gamePath_));
+			screenManager()->push(std::make_unique<DriverManagerScreen>(gamePath_));
 			return UI::EVENT_DONE;
 		});
 	}
@@ -1897,7 +1889,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bShowOnScreenMessages, dev->T("Show on-screen messages")));
 
 	list->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
-		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
+		screenManager()->push(std::make_unique<GPIGPOScreen>(dev->T("GPI/GPO switches/LEDs")));
 		return UI::EVENT_DONE;
 	});
 
@@ -2020,10 +2012,10 @@ void DeveloperToolsScreen::CreateViews() {
 		stereoShaderChoice->SetEnabledFunc(enableStereo);
 		stereoShaderChoice->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-			auto procScreen = new PostProcScreen(gr->T("Stereo display shader"), 0, true);
+			auto procScreen = std::make_unique<PostProcScreen>(gr->T("Stereo display shader"), 0, true);
 			if (e.v)
 				procScreen->SetPopupOrigin(e.v);
-			screenManager()->push(procScreen);
+			screenManager()->push(std::move(procScreen));
 			return UI::EVENT_DONE;
 		});
 		const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
@@ -2074,11 +2066,11 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(
-			new PromptScreen(gamePath_, dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
+			std::make_unique<PromptScreen>(gamePath_, dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
 	} else {
 		std::string_view title = sy->T("Restore Default Settings");
-		screenManager()->push(new RestoreSettingsScreen(title));
+		screenManager()->push(std::make_unique<RestoreSettingsScreen>(title));
 	}
 	return UI::EVENT_DONE;
 }
@@ -2114,27 +2106,27 @@ UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) 
 }
 
 UI::EventReturn DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
-	screenManager()->push(new LogConfigScreen());
+	screenManager()->push(std::make_unique<LogConfigScreen>());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DeveloperToolsScreen::OnJitDebugTools(UI::EventParams &e) {
-	screenManager()->push(new JitDebugScreen());
+	screenManager()->push(std::make_unique<JitDebugScreen>());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DeveloperToolsScreen::OnGPUDriverTest(UI::EventParams &e) {
-	screenManager()->push(new GPUDriverTestScreen());
+	screenManager()->push(std::make_unique<GPUDriverTestScreen>());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DeveloperToolsScreen::OnFramedumpTest(UI::EventParams &e) {
-	screenManager()->push(new FrameDumpTestScreen());
+	screenManager()->push(std::make_unique<FrameDumpTestScreen>());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DeveloperToolsScreen::OnTouchscreenTest(UI::EventParams &e) {
-	screenManager()->push(new TouchTestScreen(gamePath_));
+	screenManager()->push(std::make_unique<TouchTestScreen>(gamePath_));
 	return UI::EVENT_DONE;
 }
 
@@ -2479,8 +2471,8 @@ void GestureMappingScreen::CreateViews() {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	AddStandardBack(root_);
+	root_.reset(new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	AddStandardBack(root_.get());
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 	root_->Add(tabHolder);
 	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);

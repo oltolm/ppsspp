@@ -23,6 +23,7 @@
 
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/CustomButtonMappingScreen.h"
+#include <memory>
 
 static const int leftColumnWidth = 140;
 
@@ -50,7 +51,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_.reset(new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT)));
 
 	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 10));
 	root_->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -86,7 +87,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	toggles_.push_back({ "Dpad", &g_Config.touchDpad.show, ImageID::invalid(), nullptr });
 	toggles_.push_back({ "Analog Stick", &g_Config.touchAnalogStick.show, ImageID::invalid(), nullptr });
 	toggles_.push_back({ "Right Analog Stick", &g_Config.touchRightAnalogStick.show, ImageID::invalid(), [=](EventParams &e) {
-		screenManager()->push(new RightAnalogMappingScreen(gamePath_));
+		screenManager()->push(std::make_unique<RightAnalogMappingScreen>(gamePath_));
 		return UI::EVENT_DONE;
 	}});
 	toggles_.push_back({ "Fast-forward", &g_Config.touchFastForwardKey.show, ImageID::invalid(), nullptr });
@@ -95,7 +96,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 		char temp[256];
 		snprintf(temp, sizeof(temp), "Custom %d", i + 1);
 		toggles_.push_back({ temp, &g_Config.touchCustom[i].show, ImageID::invalid(), [=](EventParams &e) {
-			screenManager()->push(new CustomButtonMappingScreen(gamePath_, i));
+			screenManager()->push(std::make_unique<CustomButtonMappingScreen>(gamePath_, i));
 			return UI::EVENT_DONE;
 		} });
 	}
@@ -141,7 +142,7 @@ void RightAnalogMappingScreen::CreateViews() {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_.reset(new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 10));
 	root_->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, new AnchorLayoutParams(10, 0, 10, 0, false));
