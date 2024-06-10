@@ -15,30 +15,21 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
+#include <memory>
 
 #include "Common/LogReporting.h"
-#include "Common/MemoryUtil.h"
-#include "Common/TimeUtil.h"
-#include "Core/MemMap.h"
-#include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/CoreTiming.h"
 
-#include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Common/Profiler/Profiler.h"
 
-#include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
+#include "GPU/OpenGL/GLRenderManager.h"
 #include "GPU/ge_constants.h"
 
-#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/Debugger/Debugger.h"
-#include "GPU/GLES/FragmentTestCacheGLES.h"
-#include "GPU/GLES/StateMappingGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
@@ -125,17 +116,15 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 			continue;
 
 		if (frameData_[i].pushVertex)
-			render_->DeletePushBuffer(frameData_[i].pushVertex);
+			render_->DeletePushBuffer(std::move(frameData_[i].pushVertex));
 		if (frameData_[i].pushIndex)
-			render_->DeletePushBuffer(frameData_[i].pushIndex);
-		frameData_[i].pushVertex = nullptr;
-		frameData_[i].pushIndex = nullptr;
+			render_->DeletePushBuffer(std::move(frameData_[i].pushIndex));
 	}
 
 	ClearTrackedVertexArrays();
 
 	if (softwareInputLayout_)
-		render_->DeleteInputLayout(softwareInputLayout_);
+		render_->DeleteInputLayout(std::move(softwareInputLayout_));
 	softwareInputLayout_ = nullptr;
 
 	ClearInputLayoutMap();
@@ -143,23 +132,23 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 
 void DrawEngineGLES::ClearInputLayoutMap() {
 	inputLayoutMap_.Iterate([&](const uint32_t &key, GLRInputLayout *il) {
-		render_->DeleteInputLayout(il);
+		render_->DeleteInputLayout(std::unique_ptr<GLRInputLayout>(il));
 	});
 	inputLayoutMap_.Clear();
 }
 
 void DrawEngineGLES::BeginFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	render_->BeginPushBuffer(frameData.pushIndex);
-	render_->BeginPushBuffer(frameData.pushVertex);
+	render_->BeginPushBuffer(frameData.pushIndex.get());
+	render_->BeginPushBuffer(frameData.pushVertex.get());
 
 	lastRenderStepId_ = -1;
 }
 
 void DrawEngineGLES::EndFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	render_->EndPushBuffer(frameData.pushIndex);
-	render_->EndPushBuffer(frameData.pushVertex);
+	render_->EndPushBuffer(frameData.pushIndex.get());
+	render_->EndPushBuffer(frameData.pushVertex.get());
 	tessDataTransferGLES->EndFrame();
 }
 
@@ -218,7 +207,7 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(const DecVtxFormat &decFmt) {
 	VertexAttribSetup(ATTR_POSITION, DecVtxFormat::PosFmt(), decFmt.posoff, entries);
 
 	int stride = decFmt.stride;
-	inputLayout = render_->CreateInputLayout(entries, stride);
+	inputLayout = render_->CreateInputLayout(entries, stride).release();
 	inputLayoutMap_.Insert(key, inputLayout);
 	return inputLayout;
 }
@@ -420,12 +409,12 @@ void DrawEngineGLES::DoFlush() {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vertexBuffer);
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
 				render_->DrawIndexed(
-					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
+					softwareInputLayout_.get(), vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
 					glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT);
 			} else {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vertexBuffer);
 				render_->Draw(
-					softwareInputLayout_, vertexBuffer, vertexBufferOffset, glprim[prim], 0, result.drawNumTrans);
+					softwareInputLayout_.get(), vertexBuffer, vertexBufferOffset, glprim[prim], 0, result.drawNumTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
@@ -490,51 +479,50 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 		prevSizeU = size_u;
 		prevSizeV = size_v;
 		if (data_tex[0])
-			renderManager_->DeleteTexture(data_tex[0]);
+			renderManager_->DeleteTexture(std::move(data_tex[0]));
 		data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D, size_u * 3, size_v, 1, 1);
-		renderManager_->TextureImage(data_tex[0], 0, size_u * 3, size_v, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
-		renderManager_->FinalizeTexture(data_tex[0], 0, false);
+		renderManager_->TextureImage(data_tex[0].get(), 0, size_u * 3, size_v, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
+		renderManager_->FinalizeTexture(data_tex[0].get(), 0, false);
 	}
-	renderManager_->BindTexture(TEX_SLOT_SPLINE_POINTS, data_tex[0]);
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_POINTS, data_tex[0].get());
 	// Position
-	renderManager_->TextureSubImage(TEX_SLOT_SPLINE_POINTS, data_tex[0], 0, 0, 0, size_u, size_v, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)pos, GLRAllocType::NEW);
+	renderManager_->TextureSubImage(TEX_SLOT_SPLINE_POINTS, data_tex[0].get(), 0, 0, 0, size_u, size_v, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)pos, GLRAllocType::NEW);
 	// Texcoord
 	if (hasTexCoord)
-		renderManager_->TextureSubImage(TEX_SLOT_SPLINE_POINTS, data_tex[0], 0, size_u, 0, size_u, size_v, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)tex, GLRAllocType::NEW);
+		renderManager_->TextureSubImage(TEX_SLOT_SPLINE_POINTS, data_tex[0].get(), 0, size_u, 0, size_u, size_v, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)tex, GLRAllocType::NEW);
 	// Color
 	if (hasColor)
-		renderManager_->TextureSubImage(TEX_SLOT_SPLINE_POINTS, data_tex[0], 0, size_u * 2, 0, size_u, size_v, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)col, GLRAllocType::NEW);
+		renderManager_->TextureSubImage(TEX_SLOT_SPLINE_POINTS, data_tex[0].get(), 0, size_u * 2, 0, size_u, size_v, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)col, GLRAllocType::NEW);
 
 	// Weight U
 	if (prevSizeWU < weights.size_u) {
 		prevSizeWU = weights.size_u;
 		if (data_tex[1])
-			renderManager_->DeleteTexture(data_tex[1]);
+			renderManager_->DeleteTexture(std::move(data_tex[1]));
 		data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D, weights.size_u * 2, 1, 1, 1);
-		renderManager_->TextureImage(data_tex[1], 0, weights.size_u * 2, 1, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
-		renderManager_->FinalizeTexture(data_tex[1], 0, false);
+		renderManager_->TextureImage(data_tex[1].get(), 0, weights.size_u * 2, 1, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
+		renderManager_->FinalizeTexture(data_tex[1].get(), 0, false);
 	}
-	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_U, data_tex[1]);
-	renderManager_->TextureSubImage(TEX_SLOT_SPLINE_WEIGHTS_U, data_tex[1], 0, 0, 0, weights.size_u * 2, 1, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)weights.u, GLRAllocType::NONE);
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_U, data_tex[1].get());
+	renderManager_->TextureSubImage(TEX_SLOT_SPLINE_WEIGHTS_U, data_tex[1].get(), 0, 0, 0, weights.size_u * 2, 1, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)weights.u, GLRAllocType::NONE);
 
 	// Weight V
 	if (prevSizeWV < weights.size_v) {
 		prevSizeWV = weights.size_v;
 		if (data_tex[2])
-			renderManager_->DeleteTexture(data_tex[2]);
+			renderManager_->DeleteTexture(std::move(data_tex[2]));
 		data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D, weights.size_v * 2, 1, 1, 1);
-		renderManager_->TextureImage(data_tex[2], 0, weights.size_v * 2, 1, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
-		renderManager_->FinalizeTexture(data_tex[2], 0, false);
+		renderManager_->TextureImage(data_tex[2].get(), 0, weights.size_v * 2, 1, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
+		renderManager_->FinalizeTexture(data_tex[2].get(), 0, false);
 	}
-	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2]);
-	renderManager_->TextureSubImage(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2], 0, 0, 0, weights.size_v * 2, 1, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)weights.v, GLRAllocType::NONE);
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2].get());
+	renderManager_->TextureSubImage(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2].get(), 0, 0, 0, weights.size_v * 2, 1, Draw::DataFormat::R32G32B32A32_FLOAT, (u8 *)weights.v, GLRAllocType::NONE);
 }
 
 void TessellationDataTransferGLES::EndFrame() {
 	for (int i = 0; i < 3; i++) {
 		if (data_tex[i]) {
-			renderManager_->DeleteTexture(data_tex[i]);
-			data_tex[i] = nullptr;
+			renderManager_->DeleteTexture(std::move(data_tex[i]));
 		}
 	}
 	prevSizeU = prevSizeV = prevSizeWU = prevSizeWV = 0;

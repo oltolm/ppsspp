@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <memory>
 
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
@@ -36,9 +37,7 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/Common/ShaderId.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUInterface.h"

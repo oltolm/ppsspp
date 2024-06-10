@@ -21,11 +21,9 @@
 
 #include <cmath>
 #include <cstdio>
-#include <map>
 
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/LogReporting.h"
 #include "Common/Math/math_util.h"
@@ -49,7 +47,6 @@
 #include "GPU/Common/ShaderUniforms.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/GLES/FramebufferManagerGLES.h"
 
 using namespace Lin;
 
@@ -69,7 +66,7 @@ Shader::Shader(GLRenderManager *render, const char *code, const std::string &des
 }
 
 Shader::~Shader() {
-	render_->DeleteShader(shader);
+	render_->DeleteShader(std::move(shader));
 }
 
 LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, FShaderID FSID, Shader *fs, bool useHWTransform, bool preloading)
@@ -83,8 +80,8 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	vs_ = vs;
 
 	std::vector<GLRShader *> shaders;
-	shaders.push_back(vs->shader);
-	shaders.push_back(fs->shader);
+	shaders.push_back(vs->shader.get());
+	shaders.push_back(fs->shader.get());
 
 	std::vector<GLRProgram::Semantic> semantics;
 	semantics.reserve(7);
@@ -219,8 +216,7 @@ void LinkedShader::Delete() {
 		LinkedShader *ls = (LinkedShader *)thiz;
 		delete ls;
 	}, this);
-	render_->DeleteProgram(program);
-	program = nullptr;
+	render_->DeleteProgram(std::move(program));
 }
 
 LinkedShader::~LinkedShader() {
@@ -380,7 +376,7 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 }
 
 void LinkedShader::use(const ShaderID &VSID) const {
-	render_->BindProgram(program);
+	render_->BindProgram(program.get());
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
 

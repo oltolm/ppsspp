@@ -3,6 +3,7 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Data/Text/Parsers.h"
+#include <thread>
 
 extern std::thread::id renderThreadId;
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
@@ -92,7 +93,7 @@ void GLPushBuffer::Unmap() {
 		// Here we simply upload the data to the last buffer.
 		// Might be worth trying with size_ instead of offset_, so the driver can replace
 		// the whole buffer. At least if it's close.
-		render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].localMemory, false);
+		render_->BufferSubdata(buffers_[buf_].buffer.get(), 0, offset_, buffers_[buf_].localMemory, false);
 	} else {
 		buffers_[buf_].flushOffset = offset_;
 	}
@@ -144,7 +145,7 @@ void GLPushBuffer::AddBuffer() {
 	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
 	info.size = size_;
 	buf_ = buffers_.size();
-	buffers_.push_back(info);
+	buffers_.push_back(std::move(info));
 }
 
 void GLPushBuffer::Destroy(bool onRenderThread) {
@@ -154,9 +155,9 @@ void GLPushBuffer::Destroy(bool onRenderThread) {
 		// This will automatically unmap device memory, if needed.
 		// NOTE: We immediately delete the buffer, don't go through the deleter, if we're on the render thread.
 		if (onRenderThread) {
-			delete info.buffer;
+			info.buffer = nullptr;
 		} else {
-			render_->DeleteBuffer(info.buffer);
+			render_->DeleteBuffer(std::move(info.buffer));
 		}
 		FreeAlignedMemory(info.localMemory);
 	}

@@ -179,6 +179,7 @@ struct TexCacheEntry {
 	u16 dim;
 	u16 bufw;
 	union {
+		// this should be a std::unique_ptr<GLRTexture>
 		GLRTexture *textureName;
 		void *texturePtr;
 		VulkanTexture *vkTex;

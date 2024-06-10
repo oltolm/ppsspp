@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 #include <functional>
@@ -258,25 +257,25 @@ public:
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
 	// We pass in width/height here even though it's not strictly needed until we support glTextureStorage
 	// and then we'll also need formats and stuff.
-	GLRTexture *CreateTexture(GLenum target, int width, int height, int depth, int numMips) {
+	std::unique_ptr<GLRTexture> CreateTexture(GLenum target, int width, int height, int depth, int numMips) {
 		_dbg_assert_(target != 0);
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::CREATE_TEXTURE;
 		step.create_texture.texture = new GLRTexture(caps_, width, height, depth, numMips);
 		step.create_texture.texture->target = target;
-		return step.create_texture.texture;
+		return std::unique_ptr<GLRTexture>(step.create_texture.texture);
 	}
 
-	GLRBuffer *CreateBuffer(GLuint target, size_t size, GLuint usage) {
+	std::unique_ptr<GLRBuffer> CreateBuffer(GLuint target, size_t size, GLuint usage) {
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::CREATE_BUFFER;
 		step.create_buffer.buffer = new GLRBuffer(target, size);
 		step.create_buffer.size = (int)size;
 		step.create_buffer.usage = usage;
-		return step.create_buffer.buffer;
+		return std::unique_ptr<GLRBuffer>(step.create_buffer.buffer);
 	}
 
-	GLRShader *CreateShader(GLuint stage, const std::string &code, const std::string &desc) {
+	std::unique_ptr<GLRShader> CreateShader(GLuint stage, const std::string &code, const std::string &desc) {
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::CREATE_SHADER;
 		step.create_shader.shader = new GLRShader();
@@ -284,7 +283,7 @@ public:
 		step.create_shader.stage = stage;
 		step.create_shader.code = new char[code.size() + 1];
 		memcpy(step.create_shader.code, code.data(), code.size() + 1);
-		return step.create_shader.shader;
+		return std::unique_ptr<GLRShader>(step.create_shader.shader);
 	}
 
 	GLRFramebuffer *CreateFramebuffer(int width, int height, bool z_stencil, const char *tag) {
@@ -298,7 +297,7 @@ public:
 
 	// Can't replace uniform initializers with direct calls to SetUniform() etc because there might
 	// not be an active render pass.
-	GLRProgram *CreateProgram(
+	std::unique_ptr<GLRProgram> CreateProgram(
 		std::vector<GLRShader *> shaders, std::vector<GLRProgram::Semantic> semantics, std::vector<GLRProgram::UniformLocQuery> queries,
 		std::vector<GLRProgram::Initializer> initializers, std::unique_ptr<GLRProgramLocData> locData, const GLRProgramFlags &flags) {
 		GLRInitStep &step = initSteps_.push_uninitialized();
@@ -326,10 +325,10 @@ public:
 		}
 #endif
 		step.create_program.num_shaders = (int)shaders.size();
-		return step.create_program.program;
+		return std::unique_ptr<GLRProgram>(step.create_program.program);
 	}
 
-	GLRInputLayout *CreateInputLayout(const std::vector<GLRInputLayout::Entry> &entries, int stride) {
+	std::unique_ptr<GLRInputLayout> CreateInputLayout(const std::vector<GLRInputLayout::Entry> &entries, int stride) {
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::CREATE_INPUT_LAYOUT;
 		step.create_input_layout.inputLayout = new GLRInputLayout();
@@ -338,42 +337,42 @@ public:
 		for (auto &iter : step.create_input_layout.inputLayout->entries) {
 			step.create_input_layout.inputLayout->semanticsMask_ |= 1 << iter.location;
 		}
-		return step.create_input_layout.inputLayout;
+		return std::unique_ptr<GLRInputLayout>(step.create_input_layout.inputLayout);
 	}
 
-	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size, const char *tag) {
-		GLPushBuffer *push = new GLPushBuffer(this, target, size, tag);
-		RegisterPushBuffer(frame, push);
+	std::unique_ptr<GLPushBuffer> CreatePushBuffer(int frame, GLuint target, size_t size, const char *tag) {
+		auto push = std::make_unique<GLPushBuffer>(this, target, size, tag);
+		RegisterPushBuffer(frame, push.get());
 		return push;
 	}
 
-	void DeleteShader(GLRShader *shader) {
+	void DeleteShader(std::unique_ptr<GLRShader> shader) {
 		_dbg_assert_(shader != nullptr);
-		deleter_.shaders.push_back(shader);
+		deleter_.shaders.push_back(std::move(shader));
 	}
-	void DeleteProgram(GLRProgram *program) {
+	void DeleteProgram(std::unique_ptr<GLRProgram> program) {
 		_dbg_assert_(program != nullptr);
-		deleter_.programs.push_back(program);
+		deleter_.programs.push_back(std::move(program));
 	}
-	void DeleteBuffer(GLRBuffer *buffer) {
+	void DeleteBuffer(std::unique_ptr<GLRBuffer> buffer) {
 		_dbg_assert_(buffer != nullptr);
-		deleter_.buffers.push_back(buffer);
+		deleter_.buffers.push_back(std::move(buffer));
 	}
-	void DeleteTexture(GLRTexture *texture) {
+	void DeleteTexture(std::unique_ptr<GLRTexture> texture) {
 		_dbg_assert_(texture != nullptr);
-		deleter_.textures.push_back(texture);
+		deleter_.textures.push_back(std::move(texture));
 	}
-	void DeleteInputLayout(GLRInputLayout *inputLayout) {
+	void DeleteInputLayout(std::unique_ptr<GLRInputLayout> inputLayout) {
 		_dbg_assert_(inputLayout != nullptr);
-		deleter_.inputLayouts.push_back(inputLayout);
+		deleter_.inputLayouts.push_back(std::move(inputLayout));
 	}
-	void DeleteFramebuffer(GLRFramebuffer *framebuffer) {
+	void DeleteFramebuffer(std::unique_ptr<GLRFramebuffer> framebuffer) {
 		_dbg_assert_(framebuffer != nullptr);
-		deleter_.framebuffers.push_back(framebuffer);
+		deleter_.framebuffers.push_back(std::move(framebuffer));
 	}
-	void DeletePushBuffer(GLPushBuffer *pushbuffer) {
+	void DeletePushBuffer(std::unique_ptr<GLPushBuffer> pushbuffer) {
 		_dbg_assert_(pushbuffer != nullptr);
-		deleter_.pushBuffers.push_back(pushbuffer);
+		deleter_.pushBuffers.push_back(std::move(pushbuffer));
 	}
 
 	void BeginPushBuffer(GLPushBuffer *pushbuffer) {

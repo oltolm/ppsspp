@@ -1,3 +1,4 @@
+#include <memory>
 #include <set>
 
 #include <cstdio>
@@ -33,8 +34,8 @@ bool CompileShader(const char *source, GLuint shader, const char *filename, std:
 	return true;
 }
 
-GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src, std::string *error_message) {
-	GLSLProgram *program = new GLSLProgram();
+std::unique_ptr<GLSLProgram> glsl_create_source(const char *vshader_src, const char *fshader_src, std::string *error_message) {
+	auto program = std::make_unique<GLSLProgram>();
 	program->program_ = 0;
 	program->vsh_ = 0;
 	program->fsh_ = 0;
@@ -43,12 +44,11 @@ GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src
 	strcpy(program->name, "[srcshader]");
 	strcpy(program->vshader_filename, "");
 	strcpy(program->fshader_filename, "");
-	if (glsl_recompile(program, error_message)) {
-		active_programs.insert(program);
+	if (glsl_recompile(program.get(), error_message)) {
+		active_programs.insert(program.get());
 	} else {
 		ERROR_LOG(G3D, "Failed compiling GLSL program from source strings");
-		delete program;
-		return 0;
+		return nullptr;
 	}
 	return program;
 }
@@ -207,16 +207,15 @@ int glsl_uniform_loc(const GLSLProgram *program, const char *name) {
 	return glGetUniformLocation(program->program_, name);
 }
 
-void glsl_destroy(GLSLProgram *program) {
+void glsl_destroy(std::unique_ptr<GLSLProgram> program) {
 	if (program) {
 		glDeleteShader(program->vsh_);
 		glDeleteShader(program->fsh_);
 		glDeleteProgram(program->program_);
-		active_programs.erase(program);
+		active_programs.erase(program.get());
 	} else {
 		ERROR_LOG(G3D, "Deleting null GLSL program!");
 	}
-	delete program;
 }
 
 static const GLSLProgram *curProgram;

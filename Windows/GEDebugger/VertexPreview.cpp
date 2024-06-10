@@ -28,6 +28,8 @@
 #include "GPU/GPUState.h"
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
+#include <memory>
+#include <utility>
 
 static const char preview_fs[] =
 	"#ifdef GL_ES\n"
@@ -46,8 +48,8 @@ static const char preview_vs[] =
 	"  gl_Position.z = 1.0;\n"
 	"}\n";
 
-static GLSLProgram *previewProgram = nullptr;
-static GLSLProgram *texPreviewProgram = nullptr;
+static std::unique_ptr<GLSLProgram> previewProgram;
+static std::unique_ptr<GLSLProgram> texPreviewProgram;
 
 static GLuint previewVao = 0;
 static GLuint texPreviewVao = 0;
@@ -65,12 +67,12 @@ static const GLuint glprim[8] = {
 	GL_TRIANGLES,
 };
 
-static void BindPreviewProgram(GLSLProgram *&prog) {
+static void BindPreviewProgram(std::unique_ptr<GLSLProgram> &prog) {
 	if (prog == nullptr) {
 		prog = glsl_create_source(preview_vs, preview_fs);
 	}
 
-	glsl_bind(prog);
+	glsl_bind(prog.get());
 }
 
 static void SwapUVs(GPUDebugVertex &a, GPUDebugVertex &b) {
@@ -522,10 +524,10 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 
 void CGEDebugger::CleanupPrimPreview() {
 	if (previewProgram) {
-		glsl_destroy(previewProgram);
+		glsl_destroy(std::move(previewProgram));
 	}
 	if (texPreviewProgram) {
-		glsl_destroy(texPreviewProgram);
+		glsl_destroy(std::move(texPreviewProgram));
 	}
 }
 
