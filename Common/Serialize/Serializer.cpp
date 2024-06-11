@@ -347,7 +347,7 @@ CChunkFileReader::Error CChunkFileReader::GetFileTitle(const Path &filename, std
 	return LoadFileHeader(pFile, header, title);
 }
 
-CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::string *gitVersion, u8 *&_buffer, size_t &sz, std::string *failureReason) {
+CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::string *gitVersion, std::unique_ptr<u8[]> &_buffer, size_t &sz, std::string *failureReason) {
 	if (!File::Exists(filename)) {
 		*failureReason = "LoadStateDoesntExist";
 		ERROR_LOG(Log::SaveState, "ChunkReader: File doesn't exist");
@@ -363,23 +363,22 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 
 	// read the state
 	sz = header.ExpectedSize;
-	u8 *buffer = new u8[sz];
-	if (!pFile.ReadBytes(buffer, sz))
+	auto buffer = std::make_unique<u8[]>(sz);
+	if (!pFile.ReadBytes(buffer.get(), sz))
 	{
 		ERROR_LOG(Log::SaveState, "ChunkReader: Error reading file");
-		delete [] buffer;
 		return ERROR_BAD_FILE;
 	}
 
 	if (header.Compress) {
-		u8 *uncomp_buffer = new u8[header.UncompressedSize];
+		auto uncomp_buffer = std::make_unique<u8[]>(header.UncompressedSize);
 		size_t uncomp_size = header.UncompressedSize;
 		bool success = false;
 		if (SerializeCompressType(header.Compress) == SerializeCompressType::SNAPPY) {
-			auto status = snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
+			auto status = snappy_uncompress((const char *)buffer.get(), sz, (char *)uncomp_buffer.get(), &uncomp_size);
 			success = status == SNAPPY_OK;
 		} else if (SerializeCompressType(header.Compress) == SerializeCompressType::ZSTD) {
-			size_t status = ZSTD_decompress((char *)uncomp_buffer, uncomp_size, (const char *)buffer, sz);
+			size_t status = ZSTD_decompress((char *)uncomp_buffer.get(), uncomp_size, (const char *)buffer.get(), sz);
 			success = !ZSTD_isError(status);
 			if (success) {
 				uncomp_size = status;
@@ -389,21 +388,16 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 		}
 		if (!success) {
 			ERROR_LOG(Log::SaveState, "ChunkReader: Failed to decompress file");
-			delete [] uncomp_buffer;
-			delete [] buffer;
 			return ERROR_BAD_FILE;
 		}
 		if ((u32)uncomp_size != header.UncompressedSize) {
 			ERROR_LOG(Log::SaveState, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
-			delete [] uncomp_buffer;
-			delete [] buffer;
 			return ERROR_BAD_FILE;
 		}
-		_buffer = uncomp_buffer;
+		_buffer = std::move(uncomp_buffer);
 		sz = uncomp_size;
-		delete [] buffer;
 	} else {
-		_buffer = buffer;
+		_buffer = std::move(buffer);
 	}
 
 	if (header.GitVersion[31]) {
