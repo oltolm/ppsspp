@@ -2,6 +2,7 @@
 #include <cstdint>
 
 #include <map>
+#include <memory>
 #include <sstream>
 
 #include "Common/Log.h"
@@ -925,7 +926,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		// However, if we do need a clear and there are no commands in the previous pass,
 		// we want the queuerunner to have the opportunity to merge, so we'll go ahead and make a new renderpass.
 		if (clearMask == 0 || !steps_.back()->commands.empty()) {
-			curRenderStep_ = steps_.back();
+			curRenderStep_ = steps_.back().get();
 			curStepHasViewport_ = false;
 			curStepHasScissor_ = false;
 			for (const auto &c : steps_.back()->commands) {
@@ -957,8 +958,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		if (curRenderStep_->commands.empty()) {
 			if (curRenderStep_->render.colorLoad != VKRRenderPassLoadAction::CLEAR && curRenderStep_->render.depthLoad != VKRRenderPassLoadAction::CLEAR && curRenderStep_->render.stencilLoad != VKRRenderPassLoadAction::CLEAR) {
 				// Can trivially kill the last empty render step.
-				_dbg_assert_(steps_.back() == curRenderStep_);
-				delete steps_.back();
+				_dbg_assert_(steps_.back().get() == curRenderStep_);
 				steps_.pop_back();
 				curRenderStep_ = nullptr;
 			}
@@ -990,7 +990,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		}
 	}
 
-	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
+	auto step = std::make_unique<VKRStep>(VKRStepType::RENDER);
 	step->render.framebuffer = fb;
 	step->render.colorLoad = color;
 	step->render.depthLoad = depth;
@@ -1007,16 +1007,16 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.finalDepthStencilLayout = !fb ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
 	// pipelineFlags, renderArea and renderPassType get filled in when we finalize the step. Do not read from them before that.
 	step->tag = tag;
-	steps_.push_back(step);
+	steps_.push_back(std::move(step));
 
 	if (fb) {
 		// If there's a KEEP, we naturally read from the framebuffer.
 		if (color == VKRRenderPassLoadAction::KEEP || depth == VKRRenderPassLoadAction::KEEP || stencil == VKRRenderPassLoadAction::KEEP) {
-			step->dependencies.insert(fb);
+			steps_.back()->dependencies.insert(fb);
 		}
 	}
 
-	curRenderStep_ = step;
+	curRenderStep_ = steps_.back().get();
 	curStepHasViewport_ = false;
 	curStepHasScissor_ = false;
 	if (fb) {
@@ -1068,7 +1068,7 @@ bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAs
 
 	EndCurRenderStep();
 
-	VKRStep *step = new VKRStep{ VKRStepType::READBACK };
+	auto step = std::make_unique<VKRStep>(VKRStepType::READBACK);
 	step->readback.aspectMask = aspectBits;
 	step->readback.src = src;
 	step->readback.srcRect.offset = { x, y };
@@ -1076,7 +1076,7 @@ bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAs
 	step->readback.delayed = mode == Draw::ReadbackMode::OLD_DATA_OK;
 	step->dependencies.insert(src);
 	step->tag = tag;
-	steps_.push_back(step);
+	steps_.push_back(std::move(step));
 
 	if (mode == Draw::ReadbackMode::BLOCK) {
 		FlushSync();
@@ -1128,13 +1128,13 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 
 	EndCurRenderStep();
 
-	VKRStep *step = new VKRStep{ VKRStepType::READBACK_IMAGE };
+	auto step = std::make_unique<VKRStep>(VKRStepType::READBACK_IMAGE);
 	step->readback_image.image = image;
 	step->readback_image.srcRect.offset = { x, y };
 	step->readback_image.srcRect.extent = { (uint32_t)w, (uint32_t)h };
 	step->readback_image.mipLevel = mipLevel;
 	step->tag = tag;
-	steps_.push_back(step);
+	steps_.push_back(std::move(step));
 
 	FlushSync();
 
@@ -1292,7 +1292,7 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 	EndCurRenderStep();
 
-	VKRStep *step = new VKRStep{ VKRStepType::COPY };
+	auto step = std::make_unique<VKRStep>(VKRStepType::COPY);
 
 	step->copy.aspectMask = aspectMask;
 	step->copy.src = src;
@@ -1305,7 +1305,7 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	if (dstPos.x != 0 || dstPos.y != 0 || !fillsDst)
 		step->dependencies.insert(dst);
 
-	steps_.push_back(step);
+	steps_.push_back(std::move(step));
 }
 
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, VkImageAspectFlags aspectMask, VkFilter filter, const char *tag) {
@@ -1352,7 +1352,7 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 		}
 	}
 
-	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
+	auto step = std::make_unique<VKRStep>(VKRStepType::BLIT);
 	step->blit.aspectMask = aspectMask;
 	step->blit.src = src;
 	step->blit.srcRect = srcRect;
@@ -1365,7 +1365,7 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	if (!fillsDst)
 		step->dependencies.insert(dst);
 
-	steps_.push_back(step);
+	steps_.push_back(std::move(step));
 }
 
 VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int layer) {
