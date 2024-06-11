@@ -263,13 +263,12 @@ public:
 	{
 		*failureReason = "LoadStateWrongVersion";
 
-		u8 *ptr = nullptr;
+		std::unique_ptr<u8[]> ptr;
 		size_t sz;
 		Error error = LoadFile(filename, gitVersion, ptr, sz, failureReason);
 		if (error == ERROR_NONE) {
 			failureReason->clear();
-			error = LoadPtr(ptr, _class, failureReason);
-			delete [] ptr;
+			error = LoadPtr(ptr.get(), _class, failureReason);
 			INFO_LOG(SAVESTATE, "ChunkReader: Done loading '%s'", filename.c_str());
 		} else {
 			WARN_LOG(SAVESTATE, "ChunkReader: Error found during load of '%s'", filename.c_str());
@@ -333,7 +332,7 @@ private:
 		REVISION_CURRENT = REVISION_TITLE,
 	};
 
-	static Error LoadFile(const Path &filename, std::string *gitVersion, u8 *&buffer, size_t &sz, std::string *failureReason);
+	static Error LoadFile(const Path &filename, std::string *gitVersion, std::unique_ptr<u8[]> &buffer, size_t &sz, std::string *failureReason);
 	static Error SaveFile(const Path &filename, const std::string &title, const char *gitVersion, std::unique_ptr<u8> buffer, size_t sz);
 	static Error LoadFileHeader(File::IOFile &pFile, SChunkHeader &header, std::string *title);
 };
