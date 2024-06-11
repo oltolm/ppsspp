@@ -480,6 +480,7 @@ void System_Notify(SystemNotification notification) {
 		}
 		break;
 	}
+	case SystemNotification::APP_SWITCH_MODE_CHANGED:
 	case SystemNotification::AUDIO_MODE_CHANGED:
 	case SystemNotification::AUDIO_RESET_DEVICE:
 	case SystemNotification::FORCE_RECREATE_ACTIVITY:
