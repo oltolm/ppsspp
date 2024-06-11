@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstdio>
+#include <memory>
 #include <vector>
 #include <string>
 #include <map>
@@ -362,13 +363,12 @@ private:
 	void Destroy() {
 		if (vkTex_) {
 			vkTex_->Destroy();
-			delete vkTex_;
 			vkTex_ = nullptr;
 		}
 	}
 
 	VulkanContext *vulkan_;
-	VulkanTexture *vkTex_ = nullptr;
+	std::unique_ptr<VulkanTexture> vkTex_;
 
 	int mipLevels_ = 0;
 };
@@ -790,7 +790,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, Vu
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
-	vkTex_ = new VulkanTexture(vulkan_, desc.tag);
+	vkTex_ = std::make_unique<VulkanTexture>(vulkan_, desc.tag);
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
 	int usageBits = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	if (mipLevels_ > (int)desc.initData.size()) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <condition_variable>
 
@@ -201,7 +202,7 @@ struct VKRStep {
 // and the render thread pops them off
 struct VKRRenderThreadTask {
 	VKRRenderThreadTask(VKRRunType _runType) : runType(_runType) {}
-	std::vector<VKRStep *> steps;
+	std::vector<std::unique_ptr<VKRStep>> steps;
 	int frame = -1;
 	VKRRunType runType;
 
@@ -219,8 +220,8 @@ public:
 		backbufferImage_ = img;
 	}
 
-	void PreprocessSteps(std::vector<VKRStep *> &steps);
-	void RunSteps(std::vector<VKRStep *> &steps, int curFrame, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps = false);
+	void PreprocessSteps(std::vector<std::unique_ptr<VKRStep>> &steps);
+	void RunSteps(std::vector<std::unique_ptr<VKRStep>> &steps, int curFrame, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps = false);
 	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 
 	static std::string StepToString(VulkanContext *vulkan, const VKRStep &step);
@@ -285,9 +286,9 @@ private:
 
 	void ResizeReadbackBuffer(CachedReadback *readback, VkDeviceSize requiredSize);
 
-	void ApplyMGSHack(std::vector<VKRStep *> &steps);
-	void ApplySonicHack(std::vector<VKRStep *> &steps);
-	void ApplyRenderPassMerge(std::vector<VKRStep *> &steps);
+	void ApplyMGSHack(std::vector<std::unique_ptr<VKRStep>> &steps);
+	void ApplySonicHack(std::vector<std::unique_ptr<VKRStep>> &steps);
+	void ApplyRenderPassMerge(std::vector<std::unique_ptr<VKRStep>> &steps);
 
 	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);
 

@@ -8,6 +8,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <queue>
@@ -588,7 +589,7 @@ private:
 	PipelineFlags curPipelineFlags_{};
 	BoundingRect curRenderArea_;
 
-	std::vector<VKRStep *> steps_;
+	std::vector<std::unique_ptr<VKRStep>> steps_;
 
 	// Execution time state
 	VulkanContext *vulkan_;
