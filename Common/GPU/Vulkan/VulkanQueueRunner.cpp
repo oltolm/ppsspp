@@ -1,3 +1,4 @@
+#include <memory>
 #include <unordered_map>
 
 #include "Common/GPU/DataFormat.h"
@@ -261,7 +262,7 @@ VKRRenderPass *VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	return pass;
 }
 
-void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
+void VulkanQueueRunner::PreprocessSteps(std::vector<std::unique_ptr<VKRStep>> &steps) {
 	// Optimizes renderpasses, then sequences them.
 	// Planned optimizations: 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
@@ -338,7 +339,7 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	}
 }
 
-void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps) {
+void VulkanQueueRunner::RunSteps(std::vector<std::unique_ptr<VKRStep>> &steps, int curFrame, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps) {
 	QueueProfileContext *profile = frameData.profile.enabled ? &frameData.profile : nullptr;
 
 	if (profile)
@@ -424,9 +425,6 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 	// Deleting all in one go should be easier on the instruction cache than deleting
 	// them as we go - and easier to debug because we can look backwards in the frame.
 	if (!keepSteps) {
-		for (auto step : steps) {
-			delete step;
-		}
 		steps.clear();
 	}
 
@@ -434,7 +432,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 		profile->cpuEndTime = time_now_d();
 }
 
-void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
+void VulkanQueueRunner::ApplyMGSHack(std::vector<std::unique_ptr<VKRStep>> &steps) {
 	// Really need a sane way to express transforms of steps.
 
 	// We want to turn a sequence of copy,render(1),copy,render(1),copy,render(1) to copy,copy,copy,render(n).
@@ -474,26 +472,26 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 		if (last != -1) {
 			// We've got a sequence from i to last that needs reordering.
 			// First, let's sort it, keeping the same length.
-			std::vector<VKRStep *> copies;
-			std::vector<VKRStep *> renders;
+			std::vector<std::unique_ptr<VKRStep>> copies;
+			std::vector<std::unique_ptr<VKRStep>> renders;
 			copies.reserve((last - i) / 2);
 			renders.reserve((last - i) / 2);
 			for (int n = i; n <= last; n++) {
 				if (steps[n]->stepType == VKRStepType::COPY)
-					copies.push_back(steps[n]);
+					copies.push_back(std::move(steps[n]));
 				else if (steps[n]->stepType == VKRStepType::RENDER)
-					renders.push_back(steps[n]);
+					renders.push_back(std::move(steps[n]));
 			}
 			// Write the copies back. TODO: Combine them too.
 			for (int j = 0; j < (int)copies.size(); j++) {
-				steps[i + j] = copies[j];
+				steps[i + j] = std::move(copies[j]);
 			}
 
 			const int firstRender = i + (int)copies.size();
 
 			// Write the renders back (so they will be deleted properly).
 			for (int j = 0; j < (int)renders.size(); j++) {
-				steps[firstRender + j] = renders[j];
+				steps[firstRender + j] = std::move(renders[j]);
 			}
 			_assert_(steps[firstRender]->stepType == VKRStepType::RENDER);
 			// Combine the renders.
@@ -591,7 +589,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 	}
 }
 
-void VulkanQueueRunner::ApplySonicHack(std::vector<VKRStep *> &steps) {
+void VulkanQueueRunner::ApplySonicHack(std::vector<std::unique_ptr<VKRStep>> &steps) {
 	// We want to turn a sequence of render(3),render(1),render(6),render(1),render(6),render(1),render(3) to
 	// render(1), render(1), render(1), render(6), render(6), render(6)
 
@@ -634,23 +632,23 @@ void VulkanQueueRunner::ApplySonicHack(std::vector<VKRStep *> &steps) {
 		if (last != -1) {
 			// We've got a sequence from i to last that needs reordering.
 			// First, let's sort it, keeping the same length.
-			std::vector<VKRStep *> type1;
-			std::vector<VKRStep *> type2;
+			std::vector<std::unique_ptr<VKRStep>> type1;
+			std::vector<std::unique_ptr<VKRStep>> type2;
 			type1.reserve((last - i) / 2);
 			type2.reserve((last - i) / 2);
 			for (int n = i; n <= last; n++) {
 				if (steps[n]->render.framebuffer == steps[i]->render.framebuffer)
-					type1.push_back(steps[n]);
+					type1.push_back(std::move(steps[n]));
 				else
-					type2.push_back(steps[n]);
+					type2.push_back(std::move(steps[n]));
 			}
 
 			// Write the renders back in order. Same amount, so deletion will work fine.
 			for (int j = 0; j < (int)type1.size(); j++) {
-				steps[i + j] = type1[j];
+				steps[i + j] = std::move(type1[j]);
 			}
 			for (int j = 0; j < (int)type2.size(); j++) {
-				steps[i + j + type1.size()] = type2[j];
+				steps[i + j + type1.size()] = std::move(type2[j]);
 			}
 
 			// Combine the renders.
@@ -721,7 +719,7 @@ std::string VulkanQueueRunner::StepToString(VulkanContext *vulkan, const VKRStep
 // Ideally, this should be cheap enough to be applied to all games. At least on mobile, it's pretty
 // much a guaranteed neutral or win in terms of GPU power. However, dependency calculation really
 // must be perfect!
-void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
+void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<std::unique_ptr<VKRStep>> &steps) {
 	// First let's count how many times each framebuffer is rendered to.
 	// If it's more than one, let's do our best to merge them. This can help God of War quite a bit.
 	std::unordered_map<VKRFramebuffer *, int> counts;
@@ -745,7 +743,7 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 		dst->render.pipelineFlags |= src->render.pipelineFlags;
 		dst->render.renderPassType = MergeRPTypes(dst->render.renderPassType, src->render.renderPassType);
 	};
-	auto renderHasClear = [](const VKRStep *step) {
+	auto renderHasClear = [](VKRStep *step) {
 		const auto &r = step->render;
 		return r.colorLoad == VKRRenderPassLoadAction::CLEAR || r.depthLoad == VKRRenderPassLoadAction::CLEAR || r.stencilLoad == VKRRenderPassLoadAction::CLEAR;
 	};
@@ -767,11 +765,11 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 				case VKRStepType::RENDER:
 					if (steps[j]->render.framebuffer == fb) {
 						// Prevent Unknown's example case from https://github.com/hrydgard/ppsspp/pull/12242
-						if (renderHasClear(steps[j]) || steps[j]->dependencies.contains(touchedFramebuffers)) {
+						if (renderHasClear(steps[j].get()) || steps[j]->dependencies.contains(touchedFramebuffers)) {
 							goto done_fb;
 						} else {
 							// Safe to merge, great.
-							mergeRenderSteps(steps[i], steps[j]);
+							mergeRenderSteps(steps[i].get(), steps[j].get());
 						}
 					} else {
 						// Remember the framebuffer this wrote to. We can't merge with later passes that depend on these.
