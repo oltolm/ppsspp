@@ -1,10 +1,12 @@
 #pragma once
 
 #include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <thread>
 #include <vector>
 
 // The new threadpool.
@@ -50,8 +52,19 @@ public:
 	}
 };
 
-struct TaskThreadContext;
 static constexpr size_t TASK_PRIORITY_COUNT = (size_t)TaskPriority::COUNT;
+
+struct TaskThreadContext {
+	std::atomic<int> queue_size;
+	std::deque<Task *> private_queue[TASK_PRIORITY_COUNT];
+	std::thread thread; // the worker thread
+	std::condition_variable cond; // used to signal new work
+	std::mutex mutex; // protects the local queue.
+	int index;
+	TaskType type;
+	std::atomic<bool> cancelled;
+	char name[16];
+};
 
 struct GlobalThreadContext {
 	std::mutex mutex;
@@ -59,7 +72,7 @@ struct GlobalThreadContext {
 	std::atomic<int> compute_queue_size;
 	std::deque<Task *> io_queue[TASK_PRIORITY_COUNT];
 	std::atomic<int> io_queue_size;
-	std::vector<TaskThreadContext *> threads_;
+	std::vector<std::unique_ptr<TaskThreadContext>> threads_;
 
 	std::atomic<int> roundRobin;
 };
