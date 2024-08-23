@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common/CommonWindows.h"
+#include <windows.h>
 
 class Dialog
 {
@@ -27,16 +27,4 @@ protected:
 
 	virtual BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) = 0;
 	static INT_PTR CALLBACK DlgProcStatic(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
-};
-
-
-class DialogManager
-{
-public:
-	static void AddDlg(Dialog *dialog);
-	static void RemoveDlg(Dialog *dialog);
-	static bool IsDialogMessage(LPMSG message);
-	static void EnableAll(BOOL enable);
-	static void DestroyAll();
-	static void UpdateAll();
 };

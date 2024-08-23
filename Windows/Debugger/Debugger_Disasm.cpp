@@ -1,16 +1,13 @@
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Windows/resource.h"
-#include "Windows/InputBox.h"
 
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/RetroAchievements.h"
 #include "Windows/Debugger/BreakpointWindow.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
-#include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
-#include "Windows/Debugger/Debugger_VFPUDlg.h"
 #include "Windows/Debugger/DebuggerShared.h"
 // #include "Windows/W32Util/DarkMode.h"
 
@@ -27,8 +24,6 @@
 
 #include "Common/Data/Encoding/Utf8.h"
 
-#include "Common/CommonWindows.h"
-#include "Common/StringUtils.h"
 
 #include <windowsx.h>
 #include <commctrl.h>
