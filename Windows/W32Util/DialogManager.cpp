@@ -1,4 +1,9 @@
 #include "Common/CommonWindows.h"
+#include "Windows/Debugger/Debugger_Disasm.h"
+#include "Windows/Debugger/Debugger_MemoryDlg.h"
+#include "Windows/Debugger/Debugger_VFPUDlg.h"
+#include "Windows/GEDebugger/GEDebugger.h"
+#include <memory>
 #include <vector>
 #include <algorithm>
 #include "Windows/W32Util/DialogManager.h"
@@ -62,56 +67,4 @@ INT_PTR Dialog::DlgProcStatic(HWND hdlg, UINT message, WPARAM wParam, LPARAM lPa
 			return 0;
 		}*/
 	}
-}
-
-
-typedef std::vector <Dialog *> WindowList;
-WindowList dialogs;
-
-
-void DialogManager::AddDlg(Dialog *dialog)
-{
-	dialogs.push_back(dialog);
-}
-
-void DialogManager::RemoveDlg(Dialog *dialog)
-{
-	if (!dialog) {
-		return;
-	}
-	dialogs.erase(std::remove(dialogs.begin(), dialogs.end(), dialog), dialogs.end());
-}
-
-
-bool DialogManager::IsDialogMessage(LPMSG message)
-{
-	WindowList::iterator iter;
-	for (iter = dialogs.begin(); iter != dialogs.end(); iter++) {
-		if (::IsDialogMessage((*iter)->GetDlgHandle(), message))
-			return true;
-	}
-	return false;
-}
-
-
-void DialogManager::EnableAll(BOOL enable)
-{
-	WindowList::iterator iter;
-	for (iter=dialogs.begin(); iter!=dialogs.end(); iter++)
-		EnableWindow((*iter)->GetDlgHandle(),enable); 
-}
-
-void DialogManager::UpdateAll()
-{
-	WindowList::iterator iter;
-	for (iter=dialogs.begin(); iter!=dialogs.end(); iter++)
-		(*iter)->Update();
-}
-
-void DialogManager::DestroyAll()
-{
-	WindowList::iterator iter;
-	for (iter=dialogs.begin(); iter!=dialogs.end(); iter++)
-		delete (*iter);
-	dialogs.clear();
 }
