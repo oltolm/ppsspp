@@ -22,7 +22,6 @@
 
 #include "ppsspp_config.h"
 
-#include "Common/CommonWindows.h"
 #include "Common/OSVersion.h"
 
 #include <Windowsx.h>
@@ -36,7 +35,6 @@
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
-#include "Common/Data/Text/I18n.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -50,18 +48,12 @@
 #include "Core/Instance.h"
 #include "Core/KeyMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/Reporting.h"
-#include "Windows/InputBox.h"
 #include "Windows/InputDevice.h"
 #if PPSSPP_API(ANY_GL)
-#include "Windows/GPU/WindowsGLContext.h"
-#include "Windows/GEDebugger/GEDebugger.h"
 #endif
 #include "Windows/W32Util/DarkMode.h"
 #include "Windows/W32Util/UAHMenuBar.h"
-#include "Windows/Debugger/Debugger_Disasm.h"
-#include "Windows/Debugger/Debugger_MemoryDlg.h"
 
 #include "Common/GraphicsContext.h"
 
@@ -75,16 +67,14 @@
 #include "Windows/MainWindow.h"
 #include "Common/Log/LogManager.h"
 #include "Common/Log/ConsoleListener.h"
-#include "Windows/W32Util/DialogManager.h"
-#include "Windows/W32Util/ShellUtil.h"
+#include "Windows/W32Util/DialogManager2.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/RawInput.h"
 #include "Windows/CaptureDevice.h"
 #include "Windows/TouchInputHandler.h"
 #include "Windows/MainWindowMenu.h"
 #include "GPU/GPUCommon.h"
-#include "UI/OnScreenDisplay.h"
-#include "UI/GameSettingsScreen.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
 #define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
@@ -539,8 +529,7 @@ namespace MainWindow
 
 	void CreateDisasmWindow() {
 		if (!disasmWindow) {
-			disasmWindow = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-			DialogManager::AddDlg(disasmWindow);
+			disasmWindow = DialogManager::NewCDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		}
 		if (disasmMapLoadPending)
 			disasmWindow->NotifyMapLoaded();
@@ -550,16 +539,14 @@ namespace MainWindow
 	void CreateGeDebuggerWindow() {
 #if PPSSPP_API(ANY_GL)
 		if (!geDebuggerWindow) {
-			geDebuggerWindow = new CGEDebugger(MainWindow::GetHInstance(), MainWindow::GetHWND());
-			DialogManager::AddDlg(geDebuggerWindow);
+			geDebuggerWindow = DialogManager::NewCGEDebugger(MainWindow::GetHInstance(), MainWindow::GetHWND());
 		}
 #endif
 	}
 
 	void CreateMemoryWindow() {
 		if (!memoryWindow) {
-			memoryWindow = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-			DialogManager::AddDlg(memoryWindow);
+			memoryWindow = DialogManager::NewCMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		}
 		if (memoryMapLoadPending)
 			memoryWindow->NotifyMapLoaded();
@@ -568,8 +555,7 @@ namespace MainWindow
 
 	void CreateVFPUWindow() {
 		if (!vfpudlg) {
-			vfpudlg = new CVFPUDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-			DialogManager::AddDlg(vfpudlg);
+			vfpudlg = DialogManager::NewCVFPUDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		}
 	}
 
@@ -583,22 +569,11 @@ namespace MainWindow
 	}
 
 	void DestroyDebugWindows() {
-		DialogManager::RemoveDlg(disasmWindow);
-		delete disasmWindow;
 		disasmWindow = nullptr;
-
 #if PPSSPP_API(ANY_GL)
-		DialogManager::RemoveDlg(geDebuggerWindow);
-		delete geDebuggerWindow;
 		geDebuggerWindow = nullptr;
 #endif
-
-		DialogManager::RemoveDlg(memoryWindow);
-		delete memoryWindow;
 		memoryWindow = nullptr;
-
-		DialogManager::RemoveDlg(vfpudlg);
-		delete vfpudlg;
 		vfpudlg = nullptr;
 	}
 
