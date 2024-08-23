@@ -25,6 +25,7 @@
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/TabControl.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
+#include <memory>
 
 enum {
 	WM_GEDBG_STEPDISPLAYLIST = WM_USER + 200,
@@ -153,5 +154,5 @@ private:
 	int minWidth_;
 	int minHeight_;
 
-	StepCountDlg stepCountDlg;
+	std::shared_ptr<StepCountDlg> stepCountDlg;
 };

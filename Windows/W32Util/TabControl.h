@@ -3,8 +3,7 @@
 #include <vector>
 
 #include "CommonWindows.h"
-
-class Dialog;
+#include "DialogManager.h"
 
 class TabControl
 {

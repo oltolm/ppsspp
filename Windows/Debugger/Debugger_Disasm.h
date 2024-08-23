@@ -4,11 +4,8 @@
 #include "Windows/W32Util/TabControl.h"
 #include "Windows/Debugger/Debugger_Lists.h"
 #include "Core/Core.h"
-#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/Breakpoints.h"
 #include <vector>
-
-#include "Common/CommonWindows.h"
 
 class CtrlDisAsmView;
 class BreakpointManager;
