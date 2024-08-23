@@ -18,6 +18,7 @@
 #pragma once
 
 #include "sceAudiocodec.h"
+#include "Common/Swap.h"
 
 class PointerWrap;
 
