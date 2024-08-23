@@ -25,14 +25,12 @@
 #include <string> // System: To be able to add strings with "+"
 #include <math.h>
 #include <process.h>
-#include "Common/CommonWindows.h"
 
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
 
 #include "Common/Thread/ThreadUtil.h"
-#include "Common/Data/Encoding/Utf8.h"
 #include "Common/CommonTypes.h"
 #include "Common/Log/LogManager.h"
 #include "Common/Log/ConsoleListener.h"
@@ -53,7 +51,7 @@ ConsoleListener::ConsoleListener() : hidden_(true) {
 	if (useThread_ && !hTriggerEvent) {
 		hTriggerEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 		InitializeCriticalSection(&criticalSection);
-		logPending_ = new char[LOG_PENDING_MAX];
+		logPending_ = std::make_unique<char[]>(LOG_PENDING_MAX);
 	}
 
 	_dbg_assert_(!g_Initialized);
@@ -163,7 +161,6 @@ void ConsoleListener::Close() {
 		hTriggerEvent = nullptr;
 	}
 	if (logPending_) {
-		delete [] logPending_;
 		logPending_ = nullptr;
 	}
 
@@ -254,14 +251,14 @@ void ConsoleListener::LogWriterThread() {
 			int start = 0;
 			if (logRemotePos < logPendingReadPos_) {
 				const int count = LOG_PENDING_MAX - logPendingReadPos_;
-				memcpy(logLocal.get() + start, logPending_ + logPendingReadPos_, count);
+				memcpy(logLocal.get() + start, logPending_.get() + logPendingReadPos_, count);
 
 				start = count;
 				logPendingReadPos_ = 0;
 			}
 
 			const int count = logRemotePos - logPendingReadPos_;
-			memcpy(logLocal.get() + start, logPending_ + logPendingReadPos_, count);
+			memcpy(logLocal.get() + start, logPending_.get() + logPendingReadPos_, count);
 
 			logPendingReadPos_ += count;
 			LeaveCriticalSection(&criticalSection);
@@ -334,30 +331,30 @@ void ConsoleListener::SendToThread(LogLevel Level, const char *Text) {
 		int start = 0;
 		if (logWritePos < LOG_PENDING_MAX && logWritePos + Len >= LOG_PENDING_MAX) {
 			const int count = LOG_PENDING_MAX - logWritePos;
-			memcpy(logPending_ + logWritePos, Text, count);
+			memcpy(logPending_.get() + logWritePos, Text, count);
 			start = count;
 			logWritePos = 0;
 		}
 		const int count = Len - start;
 		if (count > 0) {
-			memcpy(logPending_ + logWritePos, Text + start, count);
+			memcpy(logPending_.get() + logWritePos, Text + start, count);
 			logWritePos += count;
 		}
 	} else {
-		memcpy(logPending_ + logWritePos, ColorAttr, ColorLen);
-		memcpy(logPending_ + logWritePos + ColorLen, Text, Len);
+		memcpy(logPending_.get() + logWritePos, ColorAttr, ColorLen);
+		memcpy(logPending_.get() + logWritePos + ColorLen, Text, Len);
 		logWritePos += ColorLen + Len;
 	}
 
 	// Oops, we passed the read pos.
 	if (prevLogWritePos < logPendingReadPos_ && logWritePos >= logPendingReadPos_) {
-		char *nextNewline = (char *) memchr(logPending_ + logWritePos, '\n', LOG_PENDING_MAX - logWritePos);
+		char *nextNewline = (char *) memchr(logPending_.get() + logWritePos, '\n', LOG_PENDING_MAX - logWritePos);
 		if (nextNewline == NULL && logWritePos > 0)
-			nextNewline = (char *) memchr(logPending_, '\n', logWritePos);
+			nextNewline = (char *) memchr(logPending_.get(), '\n', logWritePos);
 
 		// Okay, have it go right after the next newline.
 		if (nextNewline != NULL)
-			logPendingReadPos_ = (u32)(nextNewline - logPending_ + 1);
+			logPendingReadPos_ = (u32)(nextNewline - logPending_.get() + 1);
 	}
 
 	// Double check we didn't start quitting.
