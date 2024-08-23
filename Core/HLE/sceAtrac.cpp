@@ -15,7 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
+#include <array>
+#include <memory>
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -28,7 +29,6 @@
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/MediaEngine.h"
-#include "Core/HW/BufferQueue.h"
 
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceUtility.h"
@@ -36,7 +36,6 @@
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/AtracCtx.h"
 #include "Core/HLE/AtracCtx2.h"
-#include "Core/System.h"
 
 // Notes about sceAtrac buffer management
 //
@@ -77,7 +76,7 @@ static const int atracDecodeDelay = 2300;
 
 const int PSP_NUM_ATRAC_IDS = 6;
 static bool atracInited = true;
-static AtracBase *atracContexts[PSP_NUM_ATRAC_IDS];
+static std::array<std::unique_ptr<AtracBase>, PSP_NUM_ATRAC_IDS> atracContexts;
 static u32 atracContextTypes[PSP_NUM_ATRAC_IDS];
 static int atracLibVersion = 0;
 static u32 atracLibCrc = 0;
@@ -86,7 +85,6 @@ void __AtracInit() {
 	_assert_(sizeof(SceAtracContext) == 256);
 
 	atracInited = true;
-	memset(atracContexts, 0, sizeof(atracContexts));
 
 	// Start with 2 of each in this order.
 	atracContextTypes[0] = PSP_MODE_AT_3_PLUS;
@@ -99,7 +97,6 @@ void __AtracInit() {
 
 void __AtracShutdown() {
 	for (size_t i = 0; i < ARRAY_SIZE(atracContexts); ++i) {
-		delete atracContexts[i];
 		atracContexts[i] = nullptr;
 	}
 }
@@ -122,7 +119,6 @@ void __AtracDoState(PointerWrap &p) {
 		if (valid) {
 			DoSubClass<AtracBase, Atrac>(p, atracContexts[i]);
 		} else {
-			delete atracContexts[i];
 			atracContexts[i] = nullptr;
 		}
 	}
@@ -137,11 +133,11 @@ void __AtracDoState(PointerWrap &p) {
 	}
 }
 
-static AtracBase *allocAtrac(bool forceOld = false) {
+static std::unique_ptr<AtracBase> allocAtrac(bool forceOld = false) {
 	if (g_Config.bUseNewAtrac && !forceOld) {
-		return new Atrac2();
+		return std::make_unique<Atrac2>();
 	} else {
-		return new Atrac();
+		return std::make_unique<Atrac>();
 	}
 }
 
@@ -149,18 +145,18 @@ static AtracBase *getAtrac(int atracID) {
 	if (atracID < 0 || atracID >= PSP_NUM_ATRAC_IDS) {
 		return nullptr;
 	}
-	AtracBase *atrac = atracContexts[atracID];
+	AtracBase *atrac = atracContexts[atracID].get();
 	if (atrac) {
 		atrac->UpdateContextFromPSPMem();
 	}
 	return atrac;
 }
 
-static int createAtrac(AtracBase *atrac) {
+static int createAtrac(std::unique_ptr<AtracBase> atrac) {
 	for (int i = 0; i < (int)ARRAY_SIZE(atracContexts); ++i) {
-		if (atracContextTypes[i] == atrac->CodecType() && atracContexts[i] == 0) {
-			atracContexts[i] = atrac;
+		if (atracContextTypes[i] == atrac->CodecType() && atracContexts[i] == nullptr) {
 			atrac->atracID_ = i;
+			atracContexts[i] = std::move(atrac);
 			return i;
 		}
 	}
@@ -170,7 +166,6 @@ static int createAtrac(AtracBase *atrac) {
 static int deleteAtrac(int atracID) {
 	if (atracID >= 0 && atracID < PSP_NUM_ATRAC_IDS) {
 		if (atracContexts[atracID] != nullptr) {
-			delete atracContexts[atracID];
 			atracContexts[atracID] = nullptr;
 			return 0;
 		}
@@ -185,11 +180,10 @@ static u32 sceAtracGetAtracID(int codecType) {
 		return hleReportError(Log::ME, ATRAC_ERROR_INVALID_CODECTYPE, "invalid codecType");
 	}
 
-	AtracBase *atrac = allocAtrac();
+	std::unique_ptr<AtracBase> atrac = allocAtrac();
 	atrac->GetTrackMut().codecType = codecType;
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(std::move(atrac));
 	if (atracID < 0) {
-		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
@@ -633,16 +627,14 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		bufferSize = 0x10000000;
 	}
 
-	AtracBase *atrac = allocAtrac();
+	std::unique_ptr<AtracBase> atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, bufferSize);
 	if (ret < 0) {
 		// Already logged.
-		delete atrac;
 		return ret;
 	}
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(std::move(atrac));
 	if (atracID < 0) {
-		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
@@ -653,16 +645,14 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 	if (readSize > bufferSize) {
 		return hleLogError(Log::ME, ATRAC_ERROR_INCORRECT_READ_SIZE, "read size too large");
 	}
-	AtracBase *atrac = allocAtrac();
+	std::unique_ptr<AtracBase> atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, readSize);
 	if (ret < 0) {
 		// Already logged.
-		delete atrac;
 		return ret;
 	}
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(std::move(atrac));
 	if (atracID < 0) {
-		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 	return _AtracSetData(atracID, buffer, readSize, bufferSize, 2, true);
@@ -814,20 +804,17 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 
 // Note: This doesn't seem to be part of any available libatrac3plus library.
 static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
-	AtracBase *atrac = allocAtrac();
+	std::unique_ptr<AtracBase> atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, bufferSize);
 	if (ret < 0) {
 		// Already logged.
-		delete atrac;
 		return ret;
 	}
 	if (atrac->GetTrack().channels != 1) {
-		delete atrac;
 		return hleReportError(Log::ME, ATRAC_ERROR_NOT_MONO, "not mono data");
 	}
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(std::move(atrac));
 	if (atracID < 0) {
-		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
@@ -838,20 +825,17 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	if (readSize > bufferSize) {
 		return hleLogError(Log::ME, ATRAC_ERROR_INCORRECT_READ_SIZE, "read size too large");
 	}
-	AtracBase *atrac = allocAtrac();
+	std::unique_ptr<AtracBase> atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, readSize);
 	if (ret < 0) {
 		// Already logged.
-		delete atrac;
 		return ret;
 	}
 	if (atrac->GetTrack().channels != 1) {
-		delete atrac;
 		return hleReportError(Log::ME, ATRAC_ERROR_NOT_MONO, "not mono data");
 	}
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(std::move(atrac));
 	if (atracID < 0) {
-		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
@@ -859,16 +843,14 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 }
 
 static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
-	AtracBase *atrac = allocAtrac();
+	std::unique_ptr<AtracBase> atrac = allocAtrac();
 	int ret = atrac->AnalyzeAA3(buffer, bufferSize, fileSize);
 	if (ret < 0) {
 		// Already logged.
-		delete atrac;
 		return ret;
 	}
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(std::move(atrac));
 	if (atracID < 0) {
-		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
@@ -983,16 +965,14 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 		return hleLogError(Log::ME, ATRAC_ERROR_INCORRECT_READ_SIZE, "read size too large");
 	}
 
-	AtracBase *atrac = allocAtrac();
+	std::unique_ptr<AtracBase> atrac = allocAtrac();
 	int ret = atrac->AnalyzeAA3(buffer, readSize, fileSize);
 	if (ret < 0) {
 		// Already logged.
-		delete atrac;
 		return ret;
 	}
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(std::move(atrac));
 	if (atracID < 0) {
-		delete atrac;
 		return hleLogError(Log::ME, atracID, "no free ID");
 	}
 
