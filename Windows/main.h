@@ -25,14 +25,15 @@
 #include "Debugger/Debugger_VFPUDlg.h"
 
 #include "Common/CommonWindows.h"
+#include <memory>
 
-extern CDisasm *disasmWindow;
-extern CMemoryDlg *memoryWindow;
-extern CVFPUDlg *vfpudlg;
+extern std::shared_ptr<CDisasm> disasmWindow;
+extern std::shared_ptr<CMemoryDlg> memoryWindow;
+extern std::shared_ptr<CVFPUDlg> vfpudlg;
 
 #if PPSSPP_API(ANY_GL)
 #include "Windows/GEDebugger/GEDebugger.h"
-extern CGEDebugger* geDebuggerWindow;
+extern std::shared_ptr<CGEDebugger> geDebuggerWindow;
 #endif
 
 extern int g_activeWindow;

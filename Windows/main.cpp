@@ -69,7 +69,7 @@
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
 #include "Windows/W32Util/ContextMenu.h"
-#include "Windows/W32Util/DialogManager.h"
+#include "Windows/W32Util/DialogManager2.h"
 #include "Windows/W32Util/ShellUtil.h"
 
 #include "Windows/Debugger/CtrlDisAsmView.h"
@@ -96,12 +96,12 @@ extern "C" {
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #if PPSSPP_API(ANY_GL)
-CGEDebugger* geDebuggerWindow = nullptr;
+std::shared_ptr<CGEDebugger> geDebuggerWindow;
 #endif
 
-CDisasm *disasmWindow = nullptr;
-CMemoryDlg *memoryWindow = nullptr;
-CVFPUDlg *vfpudlg = nullptr;
+std::shared_ptr<CDisasm> disasmWindow;
+std::shared_ptr<CMemoryDlg> memoryWindow;
+std::shared_ptr<CVFPUDlg> vfpudlg;
 
 static std::string langRegion;
 static std::string osName;
@@ -404,7 +404,7 @@ void System_Notify(SystemNotification notification) {
 		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
 
 		if (disasmWindow)
-			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
+			PostDialogMessage(disasmWindow.get(), WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
 		break;
 	}
 
@@ -422,12 +422,12 @@ void System_Notify(SystemNotification notification) {
 
 	case SystemNotification::MEM_VIEW:
 		if (memoryWindow)
-			PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
+			PostDialogMessage(memoryWindow.get(), WM_DEB_UPDATE);
 		break;
 
 	case SystemNotification::DISASSEMBLY:
 		if (disasmWindow)
-			PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
+			PostDialogMessage(disasmWindow.get(), WM_DEB_UPDATE);
 		break;
 
 	case SystemNotification::SYMBOL_MAP_UPDATED:
@@ -442,7 +442,7 @@ void System_Notify(SystemNotification notification) {
 
 	case SystemNotification::DEBUG_MODE_CHANGE:
 		if (disasmWindow)
-			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
+			PostDialogMessage(disasmWindow.get(), WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
 		break;
 
 	case SystemNotification::POLL_CONTROLLERS:
