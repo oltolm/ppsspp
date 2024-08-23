@@ -41,6 +41,7 @@
 #include "Windows/GEDebugger/TabState.h"
 #include "Windows/GEDebugger/TabVertices.h"
 #include "Windows/W32Util/ContextMenu.h"
+#include "Windows/W32Util/DialogManager2.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/InputBox.h"
 #include "Windows/MainWindow.h"
@@ -122,15 +123,12 @@ static const std::vector<GEDebuggerTab> defaultTabs = {
 };
 
 StepCountDlg::StepCountDlg(HINSTANCE _hInstance, HWND _hParent) : Dialog((LPCSTR)IDD_GEDBG_STEPCOUNT, _hInstance, _hParent) {
-	DialogManager::AddDlg(this);
-
 	for (int i = 0; i < 4; i++) // Add items 1, 10, 100, 1000
 		SendMessageA(GetDlgItem(m_hDlg, IDC_GEDBG_STEPCOUNT_COMBO), CB_ADDSTRING, 0, (LPARAM)std::to_string((int)pow(10, i)).c_str());
 	SetWindowTextA(GetDlgItem(m_hDlg, IDC_GEDBG_STEPCOUNT_COMBO), "1");
 }
 
 StepCountDlg::~StepCountDlg() {
-	DialogManager::RemoveDlg(this);
 }
 
 void StepCountDlg::Jump(int count, bool relative) {
@@ -190,7 +188,7 @@ void CGEDebugger::Init() {
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent)
-	, stepCountDlg(_hInstance, m_hDlg) {
+	, stepCountDlg(DialogManager::NewStepCountDlg(_hInstance, m_hDlg)) {
 	SetMenu(m_hDlg, LoadMenu(_hInstance, MAKEINTRESOURCE(IDR_GEDBG_MENU)));
 
 	// minimum size = a little more than the default
@@ -1062,7 +1060,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_CLOSE:
 		GPUDebug::SetActive(false);
 
-		stepCountDlg.Show(false);
+		stepCountDlg->Show(false);
 		Show(false);
 		return TRUE;
 
@@ -1155,7 +1153,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_STEPCOUNT:
-			stepCountDlg.Show(true);
+			stepCountDlg->Show(true);
 			break;
 
 		case IDC_GEDBG_BREAKTEX:

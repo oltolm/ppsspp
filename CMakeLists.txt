@@ -2620,6 +2620,7 @@ set(WindowsFiles
 	Windows/W32Util/ContextMenu.h
 	Windows/W32Util/DialogManager.cpp
 	Windows/W32Util/DialogManager.h
+	Windows/W32Util/DialogManager2.cpp
 	Windows/W32Util/Misc.cpp
 	Windows/W32Util/Misc.h
 	Windows/W32Util/ShellUtil.cpp

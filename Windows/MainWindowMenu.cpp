@@ -42,7 +42,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "Windows/MainWindowMenu.h"
 #include "Windows/MainWindow.h"
-#include "Windows/W32Util/DialogManager.h"
+#include "Windows/W32Util/DialogManager2.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
