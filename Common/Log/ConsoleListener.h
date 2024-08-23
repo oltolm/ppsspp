@@ -20,6 +20,7 @@
 // Windows-only.
 
 #include "ppsspp_config.h"
+#include <memory>
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 
@@ -62,7 +63,7 @@ private:
 	HANDLE hTriggerEvent = nullptr;
 	CRITICAL_SECTION criticalSection{};
 
-	char *logPending_ = nullptr;
+	std::unique_ptr<char[]> logPending_;
 	std::atomic<uint32_t> logPendingReadPos_;
 	std::atomic<uint32_t> logPendingWritePos_;
 
