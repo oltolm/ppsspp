@@ -24,13 +24,13 @@ void CtrlDisplayListView::registerClass()
 	wndClass.hInstance      = GetModuleHandle(0);
 	wndClass.lpfnWndProc    = wndProc;
 	wndClass.hCursor        = LoadCursor (NULL, IDC_ARROW);
-	wndClass.hIcon          = 0;
-	wndClass.lpszMenuName   = 0;
+	wndClass.hIcon          = NULL;
+	wndClass.lpszMenuName   = NULL;
 	wndClass.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
 	wndClass.style          = 0;
 	wndClass.cbClsExtra     = 0;
 	wndClass.cbWndExtra     = sizeof(CtrlDisplayListView*);
-	wndClass.hIconSm        = 0;
+	wndClass.hIconSm        = NULL;
 
 	RegisterClassEx(&wndClass);
 }

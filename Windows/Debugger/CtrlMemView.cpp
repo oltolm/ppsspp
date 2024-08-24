@@ -74,13 +74,13 @@ void CtrlMemView::init() {
     wc.hInstance      = GetModuleHandle(0);
     wc.lpfnWndProc    = CtrlMemView::wndProc;
     wc.hCursor        = LoadCursor (NULL, IDC_ARROW);
-    wc.hIcon          = 0;
-    wc.lpszMenuName   = 0;
+    wc.hIcon          = NULL;
+    wc.lpszMenuName   = NULL;
     wc.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
     wc.style          = 0;
     wc.cbClsExtra     = 0;
 	wc.cbWndExtra     = sizeof( CtrlMemView * );
-    wc.hIconSm        = 0;
+    wc.hIconSm        = NULL;
 	
 	
     RegisterClassEx(&wc);

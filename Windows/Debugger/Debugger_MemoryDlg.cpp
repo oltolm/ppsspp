@@ -8,21 +8,18 @@
 
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
-#include "Core/MIPS/MIPSDebugInterface.h"
 
 #include "Debugger_MemoryDlg.h"
 #include "CtrlMemView.h"
 #include "DebuggerShared.h"
-#include "Common/Log.h"
 #include "winnt.h"
 #include <WindowsX.h>
-#include <algorithm>
 
 
 RECT CMemoryDlg::slRect; //sym list rect
 
 FAR WNDPROC DefAddressEditProc; 
-HWND AddressEditParentHwnd = 0;
+HWND AddressEditParentHwnd = NULL;
 
 LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
