@@ -556,7 +556,7 @@ void PSP_Shutdown() {
 	GPU_Shutdown();
 	g_paramSFO.Clear();
 	System_SetWindowTitle("");
-	currentMIPS = 0;
+	currentMIPS = nullptr;
 	pspIsInited = false;
 	pspIsIniting = false;
 	pspIsQuitting = false;

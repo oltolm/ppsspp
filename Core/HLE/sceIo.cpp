@@ -2504,7 +2504,7 @@ static void strcpy_limit(char *dest, const char *src, int limit) {
 		dest[i] = src[i];
 	}
 	// Always null terminate.
-	dest[i] = 0;
+	dest[i] = '\0';
 }
 
 static u32 sceIoDread(int id, u32 dirent_addr) {

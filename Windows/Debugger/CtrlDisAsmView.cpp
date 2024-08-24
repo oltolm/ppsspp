@@ -45,13 +45,13 @@ void CtrlDisAsmView::init()
 	wc.hInstance      = GetModuleHandle(0);
 	wc.lpfnWndProc    = CtrlDisAsmView::wndProc;
 	wc.hCursor        = LoadCursor (NULL, IDC_ARROW);
-	wc.hIcon          = 0;
-	wc.lpszMenuName   = 0;
+	wc.hIcon          = NULL;
+	wc.lpszMenuName   = NULL;
 	wc.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
 	wc.style          = 0;
 	wc.cbClsExtra     = 0;
 	wc.cbWndExtra     = sizeof( CtrlDisAsmView * );
-	wc.hIconSm        = 0;
+	wc.hIconSm        = NULL;
 	
 	RegisterClassEx(&wc);
 }
@@ -680,7 +680,7 @@ void CtrlDisAsmView::onChar(WPARAM wParam, LPARAM lParam)
 
 	char str[2];
 	str[0] = wParam;
-	str[1] = 0;
+	str[1] = '\0';
 	assembleOpcode(curAddress,str);
 }
 
@@ -1145,7 +1145,7 @@ void CtrlDisAsmView::updateStatusBarText()
 	DisassemblyLineInfo line;
 	g_disassemblyManager.getLine(curAddress,true,line, debugger);
 	
-	text[0] = 0;
+	text[0] = '\0';
 	if (line.type == DISTYPE_OPCODE || line.type == DISTYPE_MACRO)
 	{
 		if (line.info.hasRelevantAddress && IsLikelyStringAt(line.info.relevantAddress)) {
