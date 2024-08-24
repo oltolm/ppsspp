@@ -574,7 +574,7 @@ bool TestGeometryShaders() {
 		std::string genErrorString[numLanguages];
 
 		for (int j = 0; j < numLanguages; j++) {
-			buffer[j][0] = 0;
+			buffer[j][0] = '\0';
 			generateSuccess[j] = GenerateGShader(id, buffer[j], languages[j], bugs, &genErrorString[j]);
 			if (!genErrorString[j].empty()) {
 				printf("%s\n", genErrorString[j].c_str());
