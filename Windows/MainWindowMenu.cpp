@@ -175,7 +175,7 @@ namespace MainWindow {
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_GITHUB, gitHub.c_str());
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_DISCORD, discord.c_str());
-		AppendMenu(helpMenu, MF_SEPARATOR, 0, 0);
+		AppendMenu(helpMenu, MF_SEPARATOR, 0, nullptr);
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_ABOUT, aboutPPSSPP.c_str());
 	}
 
@@ -466,7 +466,7 @@ namespace MainWindow {
 			break;
 
 		case ID_FILE_MEMSTICK:
-			ShellExecute(NULL, L"open", g_Config.memStickDirectory.ToWString().c_str(), 0, 0, SW_SHOWNORMAL);
+			ShellExecute(NULL, L"open", g_Config.memStickDirectory.ToWString().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 			break;
 
 		case ID_TOGGLE_BREAK:
@@ -529,7 +529,7 @@ namespace MainWindow {
 			break;
 		case ID_FILE_LOADSTATEFILE:
 			if (!Achievements::WarnUserIfHardcoreModeActive(false)) {
-				if (W32Util::BrowseForFileName(true, hWnd, L"Load state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
+				if (W32Util::BrowseForFileName(true, hWnd, L"Load state", nullptr, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::Load(Path(fn), -1, SaveStateActionFinished);
 				}
@@ -537,8 +537,8 @@ namespace MainWindow {
 			break;
 		case ID_FILE_SAVESTATEFILE:
 			if (!Achievements::WarnUserIfHardcoreModeActive(true)) {
-				if (W32Util::BrowseForFileName(false, hWnd, L"Save state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
-					SetCursor(LoadCursor(0, IDC_WAIT));
+				if (W32Util::BrowseForFileName(false, hWnd, L"Save state", nullptr, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
+					SetCursor(LoadCursor(nullptr, IDC_WAIT));
 					SaveState::Save(Path(fn), -1, SaveStateActionFinished);
 				}
 			}
@@ -763,26 +763,26 @@ namespace MainWindow {
 			break;
 
 		case ID_DEBUG_LOADMAPFILE:
-			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
+			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", nullptr, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
 				g_symbolMap->LoadSymbolMap(Path(fn));
 				NotifyDebuggerMapLoaded();
 			}
 			break;
 
 		case ID_DEBUG_SAVEMAPFILE:
-			if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn))
+			if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap", nullptr, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn))
 				g_symbolMap->SaveSymbolMap(Path(fn));
 			break;
 
 		case ID_DEBUG_LOADSYMFILE:
-			if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym", 0, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
+			if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym", nullptr, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
 				g_symbolMap->LoadNocashSym(Path(fn));
 				NotifyDebuggerMapLoaded();
 			}
 			break;
 
 		case ID_DEBUG_SAVESYMFILE:
-			if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym", 0, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn))
+			if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym", nullptr, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn))
 				g_symbolMap->SaveNocashSym(Path(fn));
 			break;
 
@@ -835,7 +835,7 @@ namespace MainWindow {
 				MessageBox(hWnd, L"File does not exist.", L"Sorry", 0);
 			} else if (info.type == FILETYPE_DIRECTORY) {
 				MessageBox(hWnd, L"Cannot extract directories.", L"Sorry", 0);
-			} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"All files\0*.*\0\0", L"", fn)) {
+			} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", nullptr, L"All files\0*.*\0\0", L"", fn)) {
 				u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
 				// Note: len may be in blocks.
 				size_t len = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
