@@ -345,7 +345,7 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 	}
 	case '_':
 	case '\0':
-		buf[0] = 0;
+		buf[0] = '\0';
 		break;
 	default:
 		snprintf(buf, bufSize, "?");

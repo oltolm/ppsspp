@@ -62,7 +62,7 @@ namespace W32Util {
 					break;
 				}
 				temp.resize(temp.size() + MAX_PATH);
-			} while (SHGetPathFromIDListEx_(idList, &temp[0], (DWORD)temp.size(), GPFIDL_DEFAULT) == 0);
+			} while (SHGetPathFromIDListEx_(idList, &temp[0], (DWORD)temp.size(), GPFIDL_DEFAULT) == FALSE);
 			result = ConvertWStringToUTF8(temp);
 		} else {
 			wchar_t temp[MAX_PATH]{};
@@ -230,7 +230,7 @@ static HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lp
 bool CreateDesktopShortcut(std::string_view argumentPath, std::string_view gameTitleStr, const Path &icoFile) {
 	// Get the desktop folder
 	auto pathbuf = std::make_unique<wchar_t[]>(4096);
-	SHGetFolderPath(0, CSIDL_DESKTOPDIRECTORY, NULL, SHGFP_TYPE_CURRENT, pathbuf.get());
+	SHGetFolderPath(nullptr, CSIDL_DESKTOPDIRECTORY, NULL, SHGFP_TYPE_CURRENT, pathbuf.get());
 
 	std::string gameTitle(gameTitleStr);
 	// Sanitize the game title for banned characters.
