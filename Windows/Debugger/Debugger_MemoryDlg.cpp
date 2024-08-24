@@ -22,7 +22,7 @@
 RECT CMemoryDlg::slRect; //sym list rect
 
 FAR WNDPROC DefAddressEditProc; 
-HWND AddressEditParentHwnd = 0;
+HWND AddressEditParentHwnd = NULL;
 
 LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {

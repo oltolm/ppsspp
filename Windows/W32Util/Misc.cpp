@@ -26,7 +26,7 @@ namespace W32Util
 	{
 		HWND hwndParent;
 		RECT rect, rectP;
-		int width, height;      
+		int width, height;
 		int screenwidth, screenheight;
 		int x, y;
 
@@ -56,7 +56,7 @@ namespace W32Util
 
 		MoveWindow(hwnd, x, y, width, height, FALSE);
 	}
- 
+
 	BOOL CopyTextToClipboard(HWND hwnd, const char *text) {
 		std::wstring wtext = ConvertUTF8ToWString(text);
 		return CopyTextToClipboard(hwnd, wtext);
@@ -187,7 +187,7 @@ namespace W32Util
 		cmdlineW += cmdline;
 
 		// Create the process
-		bool result = CreateProcess(executable, (LPWSTR)cmdlineW.c_str(),
+		BOOL result = CreateProcess(executable, (LPWSTR)cmdlineW.c_str(),
 			NULL, NULL, FALSE,
 			NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
 			NULL, currentDirectory, &startupInfo, &processInformation);
@@ -224,25 +224,25 @@ namespace W32Util
 
 	ClipboardData::ClipboardData(const char *format, size_t sz) {
 		format_ = RegisterClipboardFormatA(format);
-		handle_ = format_ != 0 ? GlobalAlloc(GHND, sz) : 0;
-		data = handle_ != 0 ? GlobalLock(handle_) : nullptr;
+		handle_ = format_ != 0 ? GlobalAlloc(GHND, sz) : nullptr;
+		data = handle_ != nullptr ? GlobalLock(handle_) : nullptr;
 	}
 
 	ClipboardData::ClipboardData(UINT format, size_t sz) {
 		format_ = format;
 		handle_ = GlobalAlloc(GHND, sz);
-		data = handle_ != 0 ? GlobalLock(handle_) : nullptr;
+		data = handle_ != nullptr ? GlobalLock(handle_) : nullptr;
 	}
 
 	ClipboardData::~ClipboardData() {
-		if (handle_ != 0) {
+		if (handle_ != nullptr) {
 			GlobalUnlock(handle_);
 			GlobalFree(handle_);
 		}
 	}
 
 	void ClipboardData::Set() {
-		if (format_ == 0 || handle_ == 0 || data == 0)
+		if (format_ == 0 || handle_ == nullptr || data == nullptr)
 			return;
 		SetClipboardData(format_, handle_);
 	}
@@ -266,10 +266,10 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 		exStyle |= LVS_EX_CHECKBOXES;
 	SendMessage(handle, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, exStyle);
 
-	LVCOLUMN lvc; 
+	LVCOLUMN lvc;
 	lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
 	lvc.iSubItem = 0;
-	
+
 	RECT rect;
 	GetClientRect(handle,&rect);
 
@@ -351,17 +351,17 @@ int GenericListControl::HandleNotify(LPARAM lParam) {
 	{
 		NMLVDISPINFO* dispInfo = (NMLVDISPINFO*)lParam;
 
-		stringBuffer[0] = 0;
+		stringBuffer[0] = L'\0';
 		GetColumnText(stringBuffer, ARRAY_SIZE(stringBuffer), dispInfo->item.iItem,dispInfo->item.iSubItem);
-		
-		if (stringBuffer[0] == 0)
+
+		if (stringBuffer[0] == L'\0')
 			wcscat(stringBuffer,L"Invalid");
 
 		dispInfo->item.pszText = stringBuffer;
 		dispInfo->item.mask |= LVIF_TEXT;
 		return 0;
 	}
-	 
+
 	// handle checkboxes
 	if (mhdr->code == LVN_ITEMCHANGED && updating == false)
 	{
@@ -410,7 +410,7 @@ int GenericListControl::OnIncrementalSearch(int startRow, const wchar_t *str, bo
 	for (int c = 0; c < columnCount; ++c) {
 		for (int i = 0; i < size; ++i) {
 			int r = (startRow + i) % size;
-			stringBuffer[0] = 0;
+			stringBuffer[0] = L'\0';
 			GetColumnText(stringBuffer, ARRAY_SIZE(stringBuffer), r, c);
 			int difference = partial ? _wcsnicmp(str, stringBuffer, searchlen) : _wcsicmp(str, stringBuffer);
 			if (difference == 0)
@@ -590,7 +590,7 @@ void GenericListControl::CopyRows(int start, int size)
 	{
 		for (int c = 0; c < columnCount; ++c)
 		{
-			stringBuffer[0] = 0;
+			stringBuffer[0] = L'\0';
 			GetColumnText(stringBuffer, ARRAY_SIZE(stringBuffer), r, c);
 			data.append(stringBuffer);
 			if (c < columnCount - 1)
