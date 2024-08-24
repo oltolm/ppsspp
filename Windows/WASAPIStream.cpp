@@ -214,7 +214,7 @@ bool WASAPIAudioBackend::Init(HWND window, StreamCallback callback, int sampleRa
 	threadData_ = 0;
 	callback_ = callback;
 	sampleRate_ = sampleRate;
-	hThread_ = (HANDLE)_beginthreadex(0, 0, soundThread, (void *)this, 0, 0);
+	hThread_ = (HANDLE)_beginthreadex(nullptr, 0, soundThread, (void *)this, 0, nullptr);
 	if (!hThread_)
 		return false;
 	SetThreadPriority(hThread_, THREAD_PRIORITY_ABOVE_NORMAL);

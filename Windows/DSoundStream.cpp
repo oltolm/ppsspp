@@ -78,7 +78,7 @@ bool DSoundAudioBackend::CreateBuffer() {
 }
 
 int DSoundAudioBackend::RunThread() {
-	if (FAILED(DirectSoundCreate8(0, &ds_, 0))) {
+	if (FAILED(DirectSoundCreate8(nullptr, &ds_, nullptr))) {
 		ds_ = nullptr;
 		threadData_ = 2;
 		return 1;
@@ -96,7 +96,7 @@ int DSoundAudioBackend::RunThread() {
 	DWORD num1;
 	int16_t *p1;
 
-	dsBuffer_->Lock(0, bufferSize_, (void **)&p1, &num1, 0, 0, 0);
+	dsBuffer_->Lock(0, bufferSize_, (void **)&p1, &num1, nullptr, nullptr, 0);
 
 	memset(p1, 0, num1);
 	dsBuffer_->Unlock(p1, num1, 0, 0);
@@ -113,7 +113,7 @@ int DSoundAudioBackend::RunThread() {
 	while (!threadData_) {
 		EnterCriticalSection(&soundCriticalSection);
 
-		dsBuffer_->GetCurrentPosition((DWORD *)&currentPos_, 0);
+		dsBuffer_->GetCurrentPosition((DWORD *)&currentPos_, nullptr);
 		int numBytesToRender = RoundDown128(ModBufferSize(currentPos_ - lastPos_)); 
 
 		if (numBytesToRender >= 256) {
@@ -169,7 +169,7 @@ bool DSoundAudioBackend::Init(HWND window, StreamCallback _callback, int sampleR
 	callback_ = _callback;
 	sampleRate_ = sampleRate;
 	threadData_ = 0;
-	hThread_ = (HANDLE)_beginthreadex(0, 0, soundThread, (void *)this, 0, 0);
+	hThread_ = (HANDLE)_beginthreadex(nullptr, 0, soundThread, (void *)this, 0, nullptr);
 	if (!hThread_)
 		return false;
 	SetThreadPriority(hThread_, THREAD_PRIORITY_ABOVE_NORMAL);

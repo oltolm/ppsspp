@@ -769,7 +769,7 @@ void CGEDebugger::PrimaryPreviewHover(int x, int y) {
 	char desc[256] = {0};
 
 	if (!primaryWindow->HasTex()) {
-		desc[0] = 0;
+		desc[0] = '\0';
 	} else if (x < 0 || y < 0) {
 		// This means they left the area.
 		GPUgstate state{};
@@ -797,7 +797,7 @@ void CGEDebugger::SecondPreviewHover(int x, int y) {
 	char desc[256] = {0};
 
 	if (!secondWindow->HasTex()) {
-		desc[0] = 0;
+		desc[0] = '\0';
 	} else if (x < 0 || y < 0) {
 		// This means they left the area.
 		GPUgstate state{};

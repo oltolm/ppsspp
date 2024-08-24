@@ -35,13 +35,13 @@ void CtrlRegisterList::init()
 	wc.hInstance = GetModuleHandle(0);
 	wc.lpfnWndProc = CtrlRegisterList::wndProc;
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.hIcon = 0;
-	wc.lpszMenuName = 0;
+	wc.hIcon = NULL;
+	wc.lpszMenuName = NULL;
 	wc.hbrBackground = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
 	wc.style = CS_DBLCLKS;
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = sizeof(CtrlRegisterList *);
-	wc.hIconSm = 0;
+	wc.hIconSm = NULL;
 
 	RegisterClassEx(&wc);
 }
