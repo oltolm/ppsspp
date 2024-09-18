@@ -22,7 +22,7 @@
 #if defined(_MSC_VER) && _MSC_VER < 1700
 #error You need a newer version of Visual Studio
 #else
-#define _WIN32_WINNT 0x601 // Compile for Win7 on Visual Studio 2012 and above
+#define _WIN32_WINNT 0x0A00 // Compile for Win10 on Visual Studio 2012 and above
 #endif
 
 #undef WINVER
