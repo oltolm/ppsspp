@@ -2749,6 +2749,12 @@ if(UNITTEST)
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 	)
+	if(WIN32)
+		target_sources(PPSSPPUnitTest PRIVATE
+			Windows/CaptureDevice.cpp
+			Windows/CaptureDevice.h
+		)
+	endif()
 	target_link_libraries(PPSSPPUnitTest ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${LinkCommon} Common)
 	setup_target_project(PPSSPPUnitTest unittest)
 	add_test(arm64_emitter PPSSPPUnitTest Arm64Emitter)
