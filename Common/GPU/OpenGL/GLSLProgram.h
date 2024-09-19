@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <time.h>
 
@@ -47,8 +48,8 @@ struct GLSLProgram {
 // From files (VFS)
 GLSLProgram *glsl_create(const char *vshader_file, const char *fshader_file, std::string *error_message = 0);
 // Directly from source code
-GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src, std::string *error_message = 0);
-void glsl_destroy(GLSLProgram *program);
+std::unique_ptr<GLSLProgram> glsl_create_source(const char *vshader_src, const char *fshader_src, std::string *error_message = 0);
+void glsl_destroy(std::unique_ptr<GLSLProgram> program);
 
 // If recompilation of the program fails, the program is untouched and error messages
 // are logged and the function returns false.

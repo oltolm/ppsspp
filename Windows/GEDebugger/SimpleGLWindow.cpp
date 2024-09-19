@@ -84,7 +84,7 @@ SimpleGLWindow::~SimpleGLWindow() {
 		glDeleteVertexArrays(1, &vao_);
 	}
 	if (drawProgram_ != nullptr) {
-		glsl_destroy(drawProgram_);
+		glsl_destroy(std::move(drawProgram_));
 	}
 	if (tex_) {
 		glDeleteTextures(1, &tex_);
@@ -171,7 +171,7 @@ void SimpleGLWindow::CreateProgram() {
 	glGenTextures(1, &tex_);
 	glGenTextures(1, &checker_);
 
-	glsl_bind(drawProgram_);
+	glsl_bind(drawProgram_.get());
 	glUniform1i(drawProgram_->sampler0, 0);
 	glsl_unbind();
 
@@ -229,7 +229,7 @@ void SimpleGLWindow::DrawChecker() {
 	glViewport(0, 0, w_, h_);
 	glScissor(0, 0, w_, h_);
 
-	glsl_bind(drawProgram_);
+	glsl_bind(drawProgram_.get());
 
 	float fw = (float)w_, fh = (float)h_;
 	const float pos[12] = {0,0,0, fw,0,0, fw,fh,0, 0,fh,0};
@@ -416,7 +416,7 @@ void SimpleGLWindow::Redraw(bool andSwap) {
 	glScissor(0, 0, w_, h_);
 
 	glBindTexture(GL_TEXTURE_2D, tex_);
-	glsl_bind(drawProgram_);
+	glsl_bind(drawProgram_.get());
 
 	float fw, fh;
 	float x, y;
