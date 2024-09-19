@@ -1,19 +1,13 @@
-#include "GLQueueRunner.h"
-#include "ppsspp_config.h"
 #include "GLRenderManager.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
-#include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Math/math_util.h"
-#include <algorithm>
-#include <memory>
-#include <utility>
+#include <thread>
 
 #if 0 // def _DEBUG
 #define VLOG(...) INFO_LOG(Log::G3D, __VA_ARGS__)

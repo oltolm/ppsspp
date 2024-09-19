@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include "Common/CommonTypes.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 
@@ -52,7 +53,7 @@ struct FragmentTestID {
 };
 
 struct FragmentTestTexture {
-	GLRTexture *texture;
+	std::unique_ptr<GLRTexture> texture;
 	int lastFrame;
 };
 
@@ -77,7 +78,7 @@ public:
 
 private:
 
-	GLRTexture *CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]);
+	std::unique_ptr<GLRTexture> CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]);
 	static FragmentTestID GenerateTestID() ;
 
 	GLRenderManager *render_;
