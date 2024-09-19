@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <cstdint>
 #include <cstring>
@@ -67,7 +68,7 @@ public:
 	friend class GLRenderManager;
 
 	struct BufInfo {
-		GLRBuffer *buffer = nullptr;
+		std::unique_ptr<GLRBuffer> buffer;
 		uint8_t *localMemory = nullptr;
 		uint8_t *deviceMemory = nullptr;
 		size_t flushOffset = 0;
@@ -119,14 +120,14 @@ public:
 		if (offset + numBytes <= size_) {
 			// Common path.
 			offset_ = offset + numBytes;
-			*buf = buffers_[buf_].buffer;
+			*buf = buffers_[buf_].buffer.get();
 			*bindOffset = offset;
 			return writePtr_ + offset;
 		}
 
 		NextBuffer(numBytes);
 		*bindOffset = 0;
-		*buf = buffers_[buf_].buffer;
+		*buf = buffers_[buf_].buffer.get();
 		// Need to mark the allocated range used in the new buffer. How did things work before this?
 		offset_ = numBytes;
 		return writePtr_;
@@ -149,7 +150,7 @@ public:
 	// Pass in the buffer you got last time. If that buffer has been filled already, no rewind can be safely done.
 	// (well technically would be possible but not worth the trouble).
 	void Rewind(GLRBuffer *buffer, uint32_t offset) {
-		if (buffer == buffers_[buf_].buffer) {
+		if (buffer == buffers_[buf_].buffer.get()) {
 			_dbg_assert_(offset != INVALID_OFFSET);
 			_dbg_assert_(offset <= offset_);
 			offset_ = offset;

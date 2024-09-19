@@ -17,28 +17,21 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 
 #include "ext/xxhash.h"
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/Math/math_util.h"
-#include "Common/Profiler/Profiler.h"
 #include "Common/System/OSD.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
-#include "Common/TimeUtil.h"
 
-#include "Core/Config.h"
-#include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
-#include "GPU/Common/FragmentShaderGenerator.h"
 #include "GPU/Common/TextureShaderCommon.h"
-#include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "GPU/Common/TextureDecoder.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
@@ -63,7 +56,7 @@ void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) 
 void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	if (delete_them) {
 		if (entry->textureName) {
-			render_->DeleteTexture(entry->textureName);
+			render_->DeleteTexture(std::unique_ptr<GLRTexture>(entry->textureName));
 		}
 	}
 	entry->textureName = nullptr;
@@ -256,9 +249,9 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.depth == 1) {
-		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, th, 1, plan.levelsToCreate);
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D, tw, th, 1, plan.levelsToCreate).release();
 	} else {
-		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, th, plan.depth, 1);
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, th, plan.depth, 1).release();
 	}
 
 	// Apply some additional compatibility checks.
