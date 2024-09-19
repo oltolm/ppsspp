@@ -28,6 +28,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
+#include <memory>
 
 class LinkedShader;
 class ShaderManagerGLES;
@@ -42,7 +43,7 @@ struct DecVtxFormat;
 
 class TessellationDataTransferGLES : public TessellationDataTransfer {
 private:
-	GLRTexture *data_tex[3]{};
+	std::unique_ptr<GLRTexture> data_tex[3]{};
 	int prevSizeU = 0, prevSizeV = 0;
 	int prevSizeWU = 0, prevSizeWV = 0;
 	GLRenderManager *renderManager_;
@@ -110,14 +111,15 @@ private:
 	GLRInputLayout *SetupDecFmtForDraw(const DecVtxFormat &decFmt);
 
 	struct FrameData {
-		GLPushBuffer *pushVertex;
-		GLPushBuffer *pushIndex;
+		std::unique_ptr<GLPushBuffer> pushVertex;
+		std::unique_ptr<GLPushBuffer> pushIndex;
 	};
 	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES];
 
+    // this should contain std::unique_ptr<GLRInputLayout>
 	DenseHashMap<uint32_t, GLRInputLayout *> inputLayoutMap_;
 
-	GLRInputLayout *softwareInputLayout_ = nullptr;
+	std::unique_ptr<GLRInputLayout> softwareInputLayout_;
 	GLRenderManager *render_;
 
 	// Other

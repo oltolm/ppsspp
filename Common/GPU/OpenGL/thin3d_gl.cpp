@@ -1,23 +1,19 @@
 #include <cstdio>
 #include <memory>
+#include <utility>
 #include <vector>
 #include <string>
 #include <algorithm>
-#include <map>
 
+#include "GPU/OpenGL/GLMemory.h"
 #include "ppsspp_config.h"
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
-#include "Common/Math/math_util.h"
-#include "Common/Math/lin/matrix4x4.h"
-#include "Common/System/System.h"
 #include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Shader.h"
-#include "Common/GPU/OpenGL/DataFormatGL.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
-#include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "Common/GPU/OpenGL/GLRenderManager.h"
@@ -219,12 +215,12 @@ public:
 
 	~OpenGLShaderModule() {
 		if (shader_)
-			render_->DeleteShader(shader_);
+			render_->DeleteShader(std::move(shader_));
 	}
 
 	bool Compile(GLRenderManager *render, ShaderLanguage language, const uint8_t *data, size_t dataSize);
 	GLRShader *GetShader() const {
-		return shader_;
+		return shader_.get();
 	}
 	const std::string &GetSource() const { return source_; }
 
@@ -239,7 +235,7 @@ private:
 	GLRenderManager *render_;
 	ShaderStage stage_;
 	ShaderLanguage language_ = GLSL_1xx;
-	GLRShader *shader_ = nullptr;
+	std::unique_ptr<GLRShader> shader_;
 	GLuint glstage_ = 0;
 	std::string source_;  // So we can recompile in case of context loss.
 	std::string tag_;
@@ -274,7 +270,7 @@ public:
 
 	void Compile(const InputLayoutDesc &desc);
 
-	GLRInputLayout *inputLayout_ = nullptr;
+	std::unique_ptr<GLRInputLayout> inputLayout_;
 	int stride = 0;
 private:
 	GLRenderManager *render_;
@@ -288,7 +284,7 @@ public:
 			iter->Release();
 		}
 		if (program_) {
-			render_->DeleteProgram(program_);
+			render_->DeleteProgram(std::move(program_));
 		}
 		// DO NOT delete locs_ here, it's deleted by the render manager.
 	}
@@ -307,7 +303,7 @@ public:
 
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
-	GLRProgram *program_ = nullptr;
+	std::unique_ptr<GLRProgram> program_;
 
 
 	// Allow using other sampler names than sampler0, sampler1 etc in shaders.
@@ -526,7 +522,7 @@ private:
 	// Frames in flight is not such a strict concept as with Vulkan until we start using glBufferStorage and fences.
 	// But might as well have the structure ready, and can't hurt to rotate buffers.
 	struct FrameData {
-		GLPushBuffer *push;
+		std::unique_ptr<GLPushBuffer> push;
 	};
 	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES]{};
 };
@@ -804,7 +800,7 @@ OpenGLContext::~OpenGLContext() {
 	DestroyPresets();
 
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		renderManager_.DeletePushBuffer(frameData_[i].push);
+		renderManager_.DeletePushBuffer(std::move(frameData_[i].push));
 	}
 }
 
@@ -874,13 +870,13 @@ public:
 
 	TextureType GetType() const { return type_; }
 	void Bind(int stage) {
-		render_->BindTexture(stage, tex_);
+		render_->BindTexture(stage, tex_.get());
 	}
 	int NumMipmaps() const {
 		return mipLevels_;
 	}
 	GLRTexture *GetTex() const {
-		return tex_;
+		return tex_.get();
 	}
 
 	void UpdateTextureLevels(GLRenderManager *render, const uint8_t *const *data, int numLevels, TextureCallback initDataCallback);
@@ -889,7 +885,7 @@ private:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback);
 
 	GLRenderManager *render_;
-	GLRTexture *tex_;
+	std::unique_ptr<GLRTexture> tex_;
 
 	TextureType type_;
 	int mipLevels_;
@@ -941,12 +937,12 @@ void OpenGLTexture::UpdateTextureLevels(GLRenderManager *render, const uint8_t *
 		genMips = true;
 		generatedMips_ = true;
 	}
-	render->FinalizeTexture(tex_, mipLevels_, genMips);
+	render->FinalizeTexture(tex_.get(), mipLevels_, genMips);
 }
 
 OpenGLTexture::~OpenGLTexture() {
 	if (tex_) {
-		render_->DeleteTexture(tex_);
+		render_->DeleteTexture(std::move(tex_));
 		tex_ = nullptr;
 		generatedMips_ = false;
 	}
@@ -959,11 +955,11 @@ public:
 		height_ = framebuffer->height;
 	}
 	~OpenGLFramebuffer() {
-		render_->DeleteFramebuffer(framebuffer_);
+		render_->DeleteFramebuffer(std::move(framebuffer_));
 	}
 
 	GLRenderManager *render_;
-	GLRFramebuffer *framebuffer_ = nullptr;
+	std::unique_ptr<GLRFramebuffer> framebuffer_;
 };
 
 void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback) {
@@ -1004,7 +1000,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		}
 	}
 
-	render_->TextureImage(tex_, level, width, height, depth, format_, texData);
+	render_->TextureImage(tex_.get(), level, width, height, depth, format_, texData);
 }
 
 #ifdef DEBUG_READ_PIXELS
@@ -1056,7 +1052,7 @@ bool OpenGLContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelBits
 		aspect |= GL_DEPTH_BUFFER_BIT;
 	if (channelBits & Aspect::STENCIL_BIT)
 		aspect |= GL_STENCIL_BUFFER_BIT;
-	return renderManager_.CopyFramebufferToMemory(fb ? fb->framebuffer_ : nullptr, aspect, x, y, w, h, dataFormat, (uint8_t *)pixels, pixelStride, mode, tag);
+	return renderManager_.CopyFramebufferToMemory(fb ? fb->framebuffer_.get() : nullptr, aspect, x, y, w, h, dataFormat, (uint8_t *)pixels, pixelStride, mode, tag);
 }
 
 
@@ -1151,11 +1147,11 @@ public:
 		totalSize_ = size;
 	}
 	~OpenGLBuffer() {
-		render_->DeleteBuffer(buffer_);
+		render_->DeleteBuffer(std::move(buffer_));
 	}
 
 	GLRenderManager *render_;
-	GLRBuffer *buffer_;
+	std::unique_ptr<GLRBuffer> buffer_;
 	GLuint target_;
 	GLuint usage_;
 
@@ -1177,7 +1173,7 @@ void OpenGLContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t off
 	memcpy(dataCopy, data, size);
 	// if (flags & UPDATE_DISCARD) we could try to orphan the buffer using glBufferData.
 	// But we're much better off using separate buffers per FrameData...
-	renderManager_.BufferSubdata(buf->buffer_, offset, size, dataCopy);
+	renderManager_.BufferSubdata(buf->buffer_.get(), offset, size, dataCopy);
 }
 
 Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
@@ -1359,7 +1355,7 @@ void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_->blend->Apply(&renderManager_);
 	curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	curPipeline_->raster->Apply(&renderManager_);
-	renderManager_.BindProgram(curPipeline_->program_);
+	renderManager_.BindProgram(curPipeline_->program_.get());
 }
 
 void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
@@ -1389,7 +1385,7 @@ void OpenGLContext::Draw(int vertexCount, int offset) {
 	_dbg_assert_msg_(curVBuffer_ != nullptr, "Can't call Draw without a vertex buffer");
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);
-	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, curVBuffer_->buffer_, curVBufferOffset_, curPipeline_->prim, offset, vertexCount);
+	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_.get(), curVBuffer_->buffer_.get(), curVBufferOffset_, curPipeline_->prim, offset, vertexCount);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
@@ -1398,9 +1394,9 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);
 	renderManager_.DrawIndexed(
-		curPipeline_->inputLayout->inputLayout_,
-		curVBuffer_->buffer_, curVBufferOffset_,
-		curIBuffer_->buffer_, curIBufferOffset_ + offset * sizeof(uint32_t),
+		curPipeline_->inputLayout->inputLayout_.get(),
+		curVBuffer_->buffer_.get(), curVBufferOffset_,
+		curIBuffer_->buffer_.get(), curIBufferOffset_ + offset * sizeof(uint32_t),
 		curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT);
 }
 
@@ -1418,7 +1414,7 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);
-	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, buf, offset, curPipeline_->prim, 0, vertexCount);
+	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_.get(), buf, offset, curPipeline_->prim, 0, vertexCount);
 }
 
 void OpenGLContext::DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) {
@@ -1513,7 +1509,7 @@ DrawContext *T3DCreateGLContext(bool canChangeSwapInterval) {
 }
 
 OpenGLInputLayout::~OpenGLInputLayout() {
-	render_->DeleteInputLayout(inputLayout_);
+	render_->DeleteInputLayout(std::move(inputLayout_));
 }
 
 void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
@@ -1579,7 +1575,7 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 	GLRRenderPassAction depth = (GLRRenderPassAction)rp.depth;
 	GLRRenderPassAction stencil = (GLRRenderPassAction)rp.stencil;
 
-	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->framebuffer_ : nullptr, color, depth, stencil, rp.clearColor, rp.clearDepth, rp.clearStencil, tag);
+	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->framebuffer_.get() : nullptr, color, depth, stencil, rp.clearColor, rp.clearDepth, rp.clearStencil, tag);
 	curRenderTarget_ = fb;
 }
 
@@ -1596,7 +1592,7 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 		if (aspects & Aspect::STENCIL_BIT)
 			glAspect |= GL_STENCIL_BUFFER_BIT;
 	}
-	renderManager_.CopyFramebuffer(src->framebuffer_, GLRect2D{ srcX, srcY, width, height }, dst->framebuffer_, GLOffset2D{ dstX, dstY }, glAspect, tag);
+	renderManager_.CopyFramebuffer(src->framebuffer_.get(), GLRect2D{ srcX, srcY, width, height }, dst->framebuffer_.get(), GLOffset2D{ dstX, dstY }, glAspect, tag);
 }
 
 bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter linearFilter, const char *tag) {
@@ -1610,7 +1606,7 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 	if (aspects & Aspect::STENCIL_BIT)
 		aspect |= GL_STENCIL_BUFFER_BIT;
 
-	renderManager_.BlitFramebuffer(src->framebuffer_, GLRect2D{ srcX1, srcY1, srcX2 - srcX1, srcY2 - srcY1 }, dst->framebuffer_, GLRect2D{ dstX1, dstY1, dstX2 - dstX1, dstY2 - dstY1 }, aspect, linearFilter == FB_BLIT_LINEAR, tag);
+	renderManager_.BlitFramebuffer(src->framebuffer_.get(), GLRect2D{ srcX1, srcY1, srcX2 - srcX1, srcY2 - srcY1 }, dst->framebuffer_.get(), GLRect2D{ dstX1, dstY1, dstX2 - dstX1, dstY2 - dstY1 }, aspect, linearFilter == FB_BLIT_LINEAR, tag);
 	return true;
 }
 
@@ -1631,7 +1627,7 @@ void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspe
 		glAspect |= GL_STENCIL_BUFFER_BIT;
 		boundTextures_[binding] = &fb->framebuffer_->z_stencil_texture;
 	}
-	renderManager_.BindFramebufferAsTexture(fb->framebuffer_, binding, glAspect);
+	renderManager_.BindFramebufferAsTexture(fb->framebuffer_.get(), binding, glAspect);
 }
 
 void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {

@@ -16,12 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/GPU/thin3d.h"
-#include "Common/GPU/OpenGL/GLDebugLog.h"
-#include "Core/Config.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/Common/ShaderId.h"
+#include <memory>
 
 // These are small, let's give them plenty of frames.
 static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
@@ -51,7 +49,7 @@ void FragmentTestCacheGLES::BindTestTexture(int slot) {
 	const auto cached = cache_.find(id);
 	if (cached != cache_.end()) {
 		cached->second.lastFrame = gpuStats.numFlips;
-		GLRTexture *tex = cached->second.texture;
+		GLRTexture *tex = cached->second.texture.get();
 		if (tex == lastTexture_) {
 			// Already bound, hurray.
 			return;
@@ -74,15 +72,15 @@ void FragmentTestCacheGLES::BindTestTexture(int slot) {
 	const GEComparison funcs[4] = {gstate.getColorTestFunction(), gstate.getColorTestFunction(), gstate.getColorTestFunction(), gstate.getAlphaTestFunction()};
 	const bool valid[4] = {gstate.isColorTestEnabled(), gstate.isColorTestEnabled(), gstate.isColorTestEnabled(), gstate.isAlphaTestEnabled()};
 
-	GLRTexture *tex = CreateTestTexture(funcs, refs, masks, valid);
-	lastTexture_ = tex;
-	render_->BindTexture(slot, tex);
+	std::unique_ptr<GLRTexture> tex = CreateTestTexture(funcs, refs, masks, valid);
+	lastTexture_ = tex.get();
+	render_->BindTexture(slot, tex.get());
 	// We only need to do this once for the texture.
 	render_->SetTextureSampler(slot, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 	FragmentTestTexture item;
 	item.lastFrame = gpuStats.numFlips;
-	item.texture = tex;
-	cache_[id] = item;
+	item.texture = std::move(tex);
+	cache_[id] = std::move(item);
 }
 
 FragmentTestID FragmentTestCacheGLES::GenerateTestID() {
@@ -99,7 +97,7 @@ FragmentTestID FragmentTestCacheGLES::GenerateTestID() {
 	return id;
 }
 
-GLRTexture *FragmentTestCacheGLES::CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]) {
+std::unique_ptr<GLRTexture> FragmentTestCacheGLES::CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]) {
 	u8 *data = new u8[256 * 4];
 	// TODO: Might it be better to use GL_ALPHA for simple textures?
 	// TODO: Experiment with 4-bit/etc. textures.
@@ -140,15 +138,15 @@ GLRTexture *FragmentTestCacheGLES::CreateTestTexture(const GEComparison funcs[4]
 		}
 	}
 
-	GLRTexture *tex = render_->CreateTexture(GL_TEXTURE_2D, 256, 1, 1, 1);
-	render_->TextureImage(tex, 0, 256, 1, 1, Draw::DataFormat::R8G8B8A8_UNORM, data);
+	std::unique_ptr<GLRTexture> tex = render_->CreateTexture(GL_TEXTURE_2D, 256, 1, 1, 1);
+	render_->TextureImage(tex.get(), 0, 256, 1, 1, Draw::DataFormat::R8G8B8A8_UNORM, data);
 	return tex;
 }
 
 void FragmentTestCacheGLES::Clear(bool deleteThem) {
 	if (deleteThem) {
-		for (const auto &[_, v] : cache_) {
-			render_->DeleteTexture(v.texture);
+		for (auto &[_, v] : cache_) {
+			render_->DeleteTexture(std::move(v.texture));
 		}
 	}
 	cache_.clear();
@@ -159,7 +157,7 @@ void FragmentTestCacheGLES::Decimate() {
 	if (--decimationCounter_ <= 0) {
 		for (auto tex = cache_.begin(); tex != cache_.end(); ) {
 			if (tex->second.lastFrame + FRAGTEST_TEXTURE_OLD_AGE < gpuStats.numFlips) {
-				render_->DeleteTexture(tex->second.texture);
+				render_->DeleteTexture(std::move(tex->second.texture));
 				cache_.erase(tex++);
 			} else {
 				++tex;

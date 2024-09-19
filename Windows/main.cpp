@@ -18,10 +18,7 @@
 #include "stdafx.h"
 #include <initguid.h>
 #include <algorithm>
-#include <cmath>
-#include <functional>
 
-#include "Common/CommonWindows.h"
 #include "Common/File/FileUtil.h"
 #include "Common/OSVersion.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
@@ -34,7 +31,6 @@
 #include <ShlObj.h>
 #include <wrl/client.h>
 
-#include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
@@ -52,11 +48,9 @@
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/SaveState.h"
 #include "Core/Instance.h"
 #include "Windows/EmuThread.h"
 #include "Windows/WindowsAudio.h"
-#include "ext/disarm.h"
 
 #include "Common/Log/LogManager.h"
 #include "Common/Log/ConsoleListener.h"
@@ -486,12 +480,14 @@ void System_Notify(SystemNotification notification) {
 		}
 		break;
 	}
+	case SystemNotification::AUDIO_MODE_CHANGED:
 	case SystemNotification::AUDIO_RESET_DEVICE:
 	case SystemNotification::FORCE_RECREATE_ACTIVITY:
 	case SystemNotification::IMMERSIVE_MODE_CHANGE:
-	case SystemNotification::SUSTAINED_PERF_CHANGE:
 	case SystemNotification::ROTATE_UPDATED:
+	case SystemNotification::SUSTAINED_PERF_CHANGE:
 	case SystemNotification::TEST_JAVA_EXCEPTION:
+	case SystemNotification::UI_STATE_CHANGED:
 		break;
 	}
 }
