@@ -18,10 +18,10 @@
 #pragma once
 
 #include <functional>
-#include "CommonWindows.h"
+#include <memory>
+#include "CommonTypes.h"
 
 #include "Common/GPU/OpenGL/GLSLProgram.h"
-#include "Common/CommonWindows.h"
 #include "Windows/W32Util/ContextMenu.h"
 
 struct SimpleGLWindow {
@@ -151,7 +151,7 @@ protected:
 	int th_;
 	bool tflipped_;
 
-	GLSLProgram *drawProgram_ = nullptr;
+	std::unique_ptr<GLSLProgram> drawProgram_;
 	GLuint vao_ = 0;
 	GLuint ibuf_ = 0;
 	GLuint vbuf_ = 0;

@@ -1,4 +1,3 @@
-#include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLFrameData.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/Log.h"
@@ -23,44 +22,36 @@ void GLDeleter::Take(GLDeleter &other) {
 
 // Runs on the GPU thread.
 void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
-	for (auto pushBuffer : pushBuffers) {
-		renderManager->UnregisterPushBuffer(pushBuffer);
+	for (auto& pushBuffer : pushBuffers) {
+		renderManager->UnregisterPushBuffer(pushBuffer.get());
 		if (skipGLCalls) {
 			pushBuffer->Destroy(false);
 		}
-		delete pushBuffer;
 	}
 	pushBuffers.clear();
-	for (auto shader : shaders) {
+	for (auto& shader : shaders) {
 		if (skipGLCalls && shader)
 			shader->shader = 0;  // prevent the glDeleteShader
-		delete shader;
 	}
 	shaders.clear();
-	for (auto program : programs) {
+	for (auto& program : programs) {
 		if (skipGLCalls && program)
 			program->program = 0;  // prevent the glDeleteProgram
-		delete program;
 	}
 	programs.clear();
-	for (auto buffer : buffers) {
+	for (auto& buffer : buffers) {
 		if (skipGLCalls && buffer)
 			buffer->buffer_ = 0;
-		delete buffer;
 	}
 	buffers.clear();
-	for (auto texture : textures) {
+	for (auto& texture : textures) {
 		if (skipGLCalls && texture)
 			texture->texture = 0;
-		delete texture;
 	}
 	textures.clear();
-	for (auto inputLayout : inputLayouts) {
-		// No GL objects in an inputLayout yet
-		delete inputLayout;
-	}
+	// No GL objects in an inputLayout yet
 	inputLayouts.clear();
-	for (auto framebuffer : framebuffers) {
+	for (auto& framebuffer : framebuffers) {
 		if (skipGLCalls) {
 			framebuffer->handle = 0;
 			framebuffer->color_texture.texture = 0;
@@ -69,7 +60,6 @@ void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 			framebuffer->z_buffer = 0;
 			framebuffer->stencil_buffer = 0;
 		}
-		delete framebuffer;
 	}
 	framebuffers.clear();
 }

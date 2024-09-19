@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <condition_variable>
 #include <vector>
@@ -27,13 +28,13 @@ public:
 
 	void Take(GLDeleter &other);
 
-	std::vector<GLRShader *> shaders;
-	std::vector<GLRProgram *> programs;
-	std::vector<GLRBuffer *> buffers;
-	std::vector<GLRTexture *> textures;
-	std::vector<GLRInputLayout *> inputLayouts;
-	std::vector<GLRFramebuffer *> framebuffers;
-	std::vector<GLPushBuffer *> pushBuffers;
+	std::vector<std::unique_ptr<GLRShader>> shaders;
+	std::vector<std::unique_ptr<GLRProgram>> programs;
+	std::vector<std::unique_ptr<GLRBuffer>> buffers;
+	std::vector<std::unique_ptr<GLRTexture>> textures;
+	std::vector<std::unique_ptr<GLRInputLayout>> inputLayouts;
+	std::vector<std::unique_ptr<GLRFramebuffer>> framebuffers;
+	std::vector<std::unique_ptr<GLPushBuffer>> pushBuffers;
 };
 
 struct GLQueueProfileContext {
