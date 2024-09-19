@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <memory>
 
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"

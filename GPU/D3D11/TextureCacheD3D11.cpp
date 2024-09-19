@@ -23,11 +23,11 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "Core/Config.h"
 
 #include "ext/xxhash.h"

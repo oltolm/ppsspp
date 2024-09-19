@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include "Common/Data/Collections/Hashmaps.h"
@@ -49,7 +50,7 @@ public:
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
 	bool useHWTransform_;
 
-	GLRProgram *program;
+	std::unique_ptr<GLRProgram> program;
 	uint64_t availableUniforms;
 	uint64_t dirtyUniforms = 0;
 
@@ -139,7 +140,7 @@ class Shader {
 public:
 	Shader(GLRenderManager *render, const char *code, const std::string &desc, const ShaderDescGLES &params);
 	~Shader();
-	GLRShader *shader;
+	std::unique_ptr<GLRShader> shader;
 
 	bool UseHWTransform() const { return useHWTransform_; }  // only relevant for vtx shaders
 

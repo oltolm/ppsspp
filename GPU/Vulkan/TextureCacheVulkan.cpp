@@ -24,7 +24,6 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/LogReporting.h"
 #include "Common/Math/math_util.h"
-#include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/System/OSD.h"
