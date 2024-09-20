@@ -361,7 +361,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	return true;
 #else
 	// Zero bytes output. No need to memset.
-	*outbytes = 0;
+	*outSamples = 0;
 	return true;
 #endif  // USE_FFMPEG
 }
