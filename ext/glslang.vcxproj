@@ -38,7 +38,7 @@
     <ProjectGuid>{EDFA2E87-8AC1-4853-95D4-D7594FF81947}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>glslang</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -164,6 +164,7 @@
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -344,7 +345,6 @@
     <ClCompile Include="glslang\glslang\HLSL\hlslParseHelper.cpp" />
     <ClCompile Include="glslang\glslang\HLSL\hlslScanContext.cpp" />
     <ClCompile Include="glslang\glslang\HLSL\hlslTokenStream.cpp" />
-    <ClCompile Include="glslang\OGLCompilersDLL\InitializeDll.cpp" />
     <ClCompile Include="glslang\SPIRV\disassemble.cpp" />
     <ClCompile Include="glslang\SPIRV\doc.cpp" />
     <ClCompile Include="glslang\SPIRV\GlslangToSpv.cpp" />
@@ -401,7 +401,6 @@
     <ClInclude Include="glslang\glslang\HLSL\hlslScanContext.h" />
     <ClInclude Include="glslang\glslang\HLSL\hlslTokens.h" />
     <ClInclude Include="glslang\glslang\HLSL\hlslTokenStream.h" />
-    <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
     <ClInclude Include="glslang\SPIRV\bitutils.h" />
     <ClInclude Include="glslang\SPIRV\disassemble.h" />
     <ClInclude Include="glslang\SPIRV\doc.h" />
