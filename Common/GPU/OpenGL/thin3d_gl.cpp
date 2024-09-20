@@ -5,7 +5,7 @@
 #include <string>
 #include <algorithm>
 
-#include "GPU/OpenGL/GLMemory.h"
+#include "Common/GPU/OpenGL/GLMemory.h"
 #include "ppsspp_config.h"
 
 #include "Common/Data/Convert/ColorConv.h"
