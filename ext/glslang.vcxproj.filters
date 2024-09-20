@@ -100,7 +100,6 @@
       <Filter>glslang</Filter>
     </ClCompile>
     <ClCompile Include="glslang\glslang\OSDependent\Windows\ossource.cpp" />
-    <ClCompile Include="glslang\OGLCompilersDLL\InitializeDll.cpp" />
     <ClCompile Include="glslang\SPIRV\InReadableOrder.cpp">
       <Filter>SPIRV</Filter>
     </ClCompile>
@@ -250,7 +249,6 @@
     <ClInclude Include="glslang\glslang\Public\ShaderLang.h">
       <Filter>glslang</Filter>
     </ClInclude>
-    <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\glslang_tab.cpp.h">
       <Filter>glslang</Filter>
     </ClInclude>
