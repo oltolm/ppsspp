@@ -480,8 +480,8 @@ namespace MainWindow
 		SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
 
 
-		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
-		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
+		//const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
+		//DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
 
 		RECT rcClient;
 		GetClientRect(hwndMain, &rcClient);

@@ -269,8 +269,8 @@ void AVIDump::AddFrame() {
 	if (error < 0)
 		ERROR_LOG(Log::G3D, "Error while encoding video: %d", error);
 #endif
-#endif
 	av_packet_free(&pkt);
+#endif
 	delete[] flipbuffer;
 }
 

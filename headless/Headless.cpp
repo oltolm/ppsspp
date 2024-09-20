@@ -531,7 +531,7 @@ int main(int argc, const char* argv[])
 		if (File::Exists(nextPath / "assets/flash0")) {
 			g_Config.flash0Directory = nextPath / "assets/flash0";
 #if !PPSSPP_PLATFORM(ANDROID)
-			g_VFS.Register("", new DirectoryReader(nextPath / "assets"));
+			g_VFS.Register("", std::make_unique<DirectoryReader>(nextPath / "assets"));
 #endif
 			break;
 		}

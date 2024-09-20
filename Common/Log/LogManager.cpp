@@ -157,7 +157,7 @@ void LogManager::Init(bool *enabledSetting, bool headless) {
 #endif
 #if defined(_MSC_VER) && (defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP))
 	if (IsDebuggerPresent() && debuggerLog_ && (LOG_MSC_OUTPUTDEBUG || headless))
-		AddListener(debuggerLog_);
+		AddListener(debuggerLog_.get());
 #endif
 	AddListener(ringLog_.get());
 #endif
@@ -176,7 +176,7 @@ void LogManager::Shutdown() {
 #endif
 		RemoveListener(stdioLog_.get());
 #if defined(_MSC_VER) && defined(USING_WIN_UI)
-		RemoveListener(debuggerLog_);
+		RemoveListener(debuggerLog_.get());
 #endif
 #endif
 	}
