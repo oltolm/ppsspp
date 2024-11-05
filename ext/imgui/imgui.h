@@ -1948,7 +1948,7 @@ struct ImGuiTableColumnSortSpecs
 //-----------------------------------------------------------------------------
 
 #ifdef _WIN32
-#undef new
+#pragma push_macro("new")
 #endif
 
 struct ImNewWrapper {};
@@ -1961,7 +1961,7 @@ inline void  operator delete(void*, ImNewWrapper, void*)   {} // This is only re
 template<typename T> void IM_DELETE(T* p)   { if (p) { p->~T(); ImGui::MemFree(p); } }
 
 #ifdef _WIN32
-#include "Common/DbgNew.h"
+#pragma pop_macro("new")
 #endif
 
 //-----------------------------------------------------------------------------
