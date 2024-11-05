@@ -432,7 +432,7 @@ void System_Notify(SystemNotification notification) {
 
 	case SystemNotification::DISASSEMBLY_AFTERSTEP:
 		if (disasmWindow)
-			PostDialogMessage(disasmWindow, WM_DEB_AFTERSTEP);
+			PostDialogMessage(disasmWindow.get(), WM_DEB_AFTERSTEP);
 		break;
 
 	case SystemNotification::SYMBOL_MAP_UPDATED:
