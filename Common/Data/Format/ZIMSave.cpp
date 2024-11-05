@@ -218,7 +218,7 @@ void SaveZIM(FILE *f, int width, int height, int pitch, int flags, std::unique_p
 		}
 
 		if (i != num_levels - 1) {
-			image_data = std::move(DownsampleBy2(std::move(image_data), width, height, pitch));
+			image_data = DownsampleBy2(std::move(image_data), width, height, pitch);
 			width /= 2;
 			height /= 2;
 			pitch = width * 4;
