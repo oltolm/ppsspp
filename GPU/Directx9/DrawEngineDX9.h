@@ -62,8 +62,6 @@ public:
 	void SetFramebufferManager(FramebufferManagerDX9 *fbManager) {
 		framebufferManager_ = fbManager;
 	}
-	void InitDeviceObjects();
-	void DestroyDeviceObjects();
 
 	void BeginFrame();
 
@@ -79,6 +77,8 @@ protected:
 	bool UpdateUseHWTessellation(bool enable) const override { return false; }
 
 private:
+	void InitDeviceObjects();
+	void DestroyDeviceObjects();
 	void Invalidate(InvalidationCallbackFlags flags);
 
 	void ApplyDrawState(int prim);
