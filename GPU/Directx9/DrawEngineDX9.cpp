@@ -99,7 +99,6 @@ DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vertexDeclM
 
 DrawEngineDX9::~DrawEngineDX9() {
 	DestroyDeviceObjects();
-	vertexDeclMap_.Clear();
 	delete tessDataTransferDX9;
 }
 
