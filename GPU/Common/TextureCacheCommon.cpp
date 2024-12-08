@@ -3157,7 +3157,7 @@ void TextureCacheCommon::DrawImGuiDebug(uint64_t &selectedTextureId) const {
 		}
 	}
 
-	if (ImGui::CollapsingHeader("Texture Cache State"), ImGuiTreeNodeFlags_DefaultOpen) {
+	if (ImGui::CollapsingHeader("Texture Cache State", ImGuiTreeNodeFlags_DefaultOpen)) {
 		ImGui::Text("Cache: %d textures, size est %d", (int)cache_.size(), cacheSizeEstimate_);
 		if (!secondCache_.empty()) {
 			ImGui::Text("Second: %d textures, size est %d", (int)secondCache_.size(), secondCacheSizeEstimate_);
