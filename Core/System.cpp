@@ -662,6 +662,8 @@ void PSP_RunLoopUntil(u64 globalticks) {
 				break;
 			}
 			break;
+			case CORE_POWERUP:
+				break;
 		}
 	}
 }
