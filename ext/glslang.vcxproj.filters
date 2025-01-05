@@ -249,7 +249,6 @@
     <ClInclude Include="glslang\glslang\Public\ShaderLang.h">
       <Filter>glslang</Filter>
     </ClInclude>
-    <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\glslang_tab.cpp.h">
       <Filter>glslang</Filter>
     </ClInclude>

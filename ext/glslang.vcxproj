@@ -408,7 +408,6 @@
     <ClInclude Include="glslang\glslang\HLSL\hlslScanContext.h" />
     <ClInclude Include="glslang\glslang\HLSL\hlslTokens.h" />
     <ClInclude Include="glslang\glslang\HLSL\hlslTokenStream.h" />
-    <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
     <ClInclude Include="glslang\SPIRV\bitutils.h" />
     <ClInclude Include="glslang\SPIRV\disassemble.h" />
     <ClInclude Include="glslang\SPIRV\doc.h" />
