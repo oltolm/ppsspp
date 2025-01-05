@@ -503,8 +503,10 @@ namespace MainWindow
 		SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
 
 
+#if _WIN32_WINNT > 0x0A00
 		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
 		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
+#endif
 
 		RECT rcClient;
 		GetClientRect(hwndMain, &rcClient);
