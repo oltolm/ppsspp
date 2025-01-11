@@ -378,7 +378,7 @@ if(NOT MSVC)
 	# This one is very useful but has many false positives.
 		add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-Wno-class-memaccess>")
 	else()
-		add_compile_options(-Wno-deprecated-declarations)
+		# add_compile_options(-Wno-deprecated-declarations)
 	endif()
 
 	if(ANDROID)
