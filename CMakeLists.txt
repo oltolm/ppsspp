@@ -1017,11 +1017,18 @@ if(USE_FFMPEG)
 		endif()
 	endif()
 
-	find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
-	# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
-	# Check if we need to use const AVCodec
-	set(CMAKE_REQUIRED_INCLUDES ${FFmpeg_INCLUDE_avcodec};${FFmpeg_INCLUDE_avformat})
-	set(CMAKE_REQUIRED_LIBRARIES FFmpeg::avcodec;FFmpeg::avformat)
+	if(MINGW)
+		find_package(PkgConfig REQUIRED)
+		pkg_check_modules(FFmpeg REQUIRED IMPORTED_TARGET libavcodec libavformat libavutil libswresample libswscale)
+		set(CMAKE_REQUIRED_INCLUDES ${FFmpeg_libavcodec_INCLUDEDIR};${FFmpeg_libavformat_INCLUDEDIR})
+		set(CMAKE_REQUIRED_LIBRARIES PkgConfig::FFmpeg)
+	else()
+		find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
+		# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
+		# Check if we need to use const AVCodec
+		set(CMAKE_REQUIRED_INCLUDES ${FFmpeg_INCLUDE_avcodec};${FFmpeg_INCLUDE_avformat})
+		set(CMAKE_REQUIRED_LIBRARIES FFmpeg::avcodec;FFmpeg::avformat)
+	endif()
 	set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
 	check_cxx_source_compiles("extern \"C\" {
 		#include <libavcodec/avcodec.h>
@@ -2545,14 +2552,18 @@ if(FFmpeg_FOUND)
 	endif()
 	set_target_properties(${CoreLibName} PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
 	target_include_directories(${CoreLibName} BEFORE PUBLIC ${FFmpeg_INCLUDE_avcodec} ${FFmpeg_INCLUDE_avformat})
-	target_link_libraries(${CoreLibName}
-		FFmpeg::avcodec
-		FFmpeg::avformat
-		FFmpeg::avutil
-		FFmpeg::swresample
-		FFmpeg::swscale
-		${ZLIB_LIBRARY}
-	)
+	if(MINGW)
+		target_link_libraries(${CoreLibName} PkgConfig::FFmpeg ${ZLIB_LIBRARY})
+	else()
+		target_link_libraries(${CoreLibName}
+			FFmpeg::avcodec
+			FFmpeg::avformat
+			FFmpeg::avutil
+			FFmpeg::swresample
+			FFmpeg::swscale
+			${ZLIB_LIBRARY}
+		)
+	endif()
 endif()
 
 # Discord integration
