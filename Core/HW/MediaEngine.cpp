@@ -655,48 +655,37 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 	auto codecIter = m_pCodecCtxs.find(m_videoStream);
 	AVCodecContext *m_pCodecCtx = codecIter == m_pCodecCtxs.end() ? 0 : codecIter->second;
 
-	if (!m_pFormatCtx)
-		return false;
-	if (!m_pCodecCtx)
-		return false;
-	if (!m_pFrame)
+	if (!m_pFormatCtx || !m_pCodecCtx || !m_pFrame)
 		return false;
 
-	AVPacket packet;
-	av_init_packet(&packet);
-	int frameFinished;
-	bool bGetFrame = false;
-	while (!bGetFrame) {
-		bool dataEnd = av_read_frame(m_pFormatCtx, &packet) < 0;
+	AVPacket *packet = av_packet_alloc();
+	int ret = 0;
+	while (ret >= 0) {
+		ret = av_read_frame(m_pFormatCtx, packet);
+		if (ret < 0)
+			break;
 		// Even if we've read all frames, some may have been re-ordered frames at the end.
 		// Still need to decode those, so keep calling avcodec_decode_video2() / avcodec_receive_frame().
-		if (dataEnd || packet.stream_index == m_videoStream) {
+		if (packet->stream_index == m_videoStream) {
 			// avcodec_decode_video2() / avcodec_send_packet() gives us the re-ordered frames with a NULL packet.
-#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
-			if (dataEnd)
-				av_packet_unref(&packet);
-#else
-			if (dataEnd)
-				av_free_packet(&packet);
-#endif
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
-			if (packet.size != 0)
-				avcodec_send_packet(m_pCodecCtx, &packet);
-			int result = avcodec_receive_frame(m_pCodecCtx, m_pFrame);
-			if (result == 0) {
-				result = m_pFrame->pkt_size;
-				frameFinished = 1;
-			} else if (result == AVERROR(EAGAIN)) {
-				result = 0;
-				frameFinished = 0;
-			} else {
-				frameFinished = 0;
-			}
-#else
-			int result = avcodec_decode_video2(m_pCodecCtx, m_pFrame, &frameFinished, &packet);
-#endif
-			if (frameFinished) {
+			ret = avcodec_send_packet(m_pCodecCtx, packet);
+
+			if (ret < 0)
+				break;
+
+			while (ret >= 0) {
+				ret = avcodec_receive_frame(m_pCodecCtx, m_pFrame);
+				if (ret ==  AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+					ret = 0;
+					break;
+				} else if (ret < 0) {
+					break;
+				}
+	#else
+				int result = avcodec_decode_video2(m_pCodecCtx, m_pFrame, &frameFinished, &packet);
+	#endif
 				if (!m_pFrameRGB) {
 					setVideoDim();
 				}
@@ -735,24 +724,22 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 					m_videopts += ptsDuration;
 					m_lastPts = m_videopts;
 				}
-				bGetFrame = true;
-			}
-			if (result <= 0 && dataEnd) {
-				// Sometimes, m_readSize is less than m_streamSize at the end, but not by much.
-				// This is kinda a hack, but the ringbuffer would have to be prematurely empty too.
-				m_isVideoEnd = !bGetFrame && (m_pdata->getQueueSize() == 0);
-				if (m_isVideoEnd)
-					m_decodingsize = 0;
-				break;
+
+				av_frame_unref(m_pFrame);
+
+				goto finish;
 			}
 		}
+
+		av_packet_unref(packet);
+	}
+finish:
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
-		av_packet_unref(&packet);
+		av_packet_free(&packet);
 #else
 		av_free_packet(&packet);
 #endif
-	}
-	return bGetFrame;
+	return ret == 0;
 #else
 	// If video engine is not available, just add to the timestamp at least.
 	m_videopts += 3003;
