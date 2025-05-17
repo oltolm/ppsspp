@@ -35,20 +35,20 @@
 #endif
 
 // WinSock2 MUST be included before <windows.h> !!!
-#include <WinSock2.h>
+#include <WinSock2.h> // IWYU pragma: export
 
-#include "Common/CommonWindows.h"
+#include "Common/CommonWindows.h" // IWYU pragma: export
 
-#include <windowsx.h>
-#include <process.h>
-#include <tchar.h>
-#include <stdio.h>
+#include <windowsx.h> // IWYU pragma: export
+#include <process.h> // IWYU pragma: export
+#include <tchar.h> // IWYU pragma: export
+#include <stdio.h> // IWYU pragma: export
 
 #define _USE_MATH_DEFINES
-#include <math.h>
-#include <time.h>
-#include <vector>
-#include <map>
-#include <string>
+#include <math.h> // IWYU pragma: export
+#include <time.h> // IWYU pragma: export
+#include <vector> // IWYU pragma: export
+#include <map> // IWYU pragma: export
+#include <string> // IWYU pragma: export
 
-#include "Common/Log.h"
+#include "Common/Log.h" // IWYU pragma: export
