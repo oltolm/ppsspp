@@ -509,7 +509,6 @@ else()
 	if (NOT CLANG)
 		add_compile_options(-MP)
 	endif()
-	add_link_options(/NODEFAULTLIB:"libcmt.lib")
 endif()
 
 if(WIN32)
@@ -1528,7 +1527,18 @@ else()
 endif()
 
 if(WIN32)
-	target_link_libraries(Common winmm dsound dxguid Version)
+	target_link_libraries(Common
+		avrt
+		comctl32
+		dinput8
+		dwmapi
+		hid
+		ksuser
+		mfplat
+		setupapi
+		uxtheme
+		version
+	)
 endif()
 
 if(NOT LIBRETRO)
@@ -2778,7 +2788,6 @@ endif()
 list(APPEND LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput winmm dinput8 ole32 winspool ksuser dwmapi mf uxtheme mfplat mfreadwrite mfuuid shlwapi setupapi hid)
 	#setup_target_project(${TargetBin} Windows)
 	list(APPEND NativeAppSource ${WindowsFiles})
 endif()
@@ -2969,10 +2978,7 @@ if(TargetBin)
 		endif()
 	elseif(WIN32)
 		add_executable(${TargetBin} WIN32 ${NativeAppSource})
-		if(NOT MSVC)
-			target_compile_options(${TargetBin} PRIVATE $<$<CXX_COMPILER_ID:Clang>:-Wno-c++11-narrowing>)
-			target_link_libraries(${TargetBin} Version Dwmapi Avrt)
-		endif()
+		target_compile_options(${TargetBin} PRIVATE $<$<CXX_COMPILER_ID:Clang>:-Wno-c++11-narrowing>)
 		set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${TargetBin})
 	else()
 		add_executable(${TargetBin} ${NativeAppSource})
