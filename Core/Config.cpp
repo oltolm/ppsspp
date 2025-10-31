@@ -1100,7 +1100,7 @@ std::map<const void *, const ConfigSetting *> &Config::getPtrLUT() {
 Config::Config() {
 	// Initialize the pointer->setting lookup map.
 	auto ref = getPtrLUT();
-	IterateSettings([this, &ref](const char *owner, const ConfigSetting &setting) {
+	IterateSettings([&ref](const char *owner, const ConfigSetting &setting) {
 		const void *ptr = setting.GetVoidPtr(owner);
 		ref[ptr] = &setting;
 	});
