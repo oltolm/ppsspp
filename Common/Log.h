@@ -109,8 +109,10 @@ inline bool GenericLogEnabled(Log type, LogLevel level) {
 }
 
 void GenericLog(Log type, LogLevel level, const char *file, int line, const char *fmt, ...)
-#ifdef __GNUC__
+#if defined(__GNUC__) && defined(__clang__)
 		__attribute__((format(printf, 5, 6)))
+#elif defined(__GNUC__)
+		__attribute__((format(gnu_printf, 5, 6)))
 #endif
 		;
 
